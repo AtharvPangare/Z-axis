@@ -329,12 +329,21 @@ fileUpload.addEventListener('change', (e) => {
     }
 });
 
+const changeImageBtn = document.getElementById('change-image-btn');
+if (changeImageBtn) {
+    changeImageBtn.addEventListener('click', () => {
+        if (fileUpload) fileUpload.click();
+    });
+}
+
 // Start Pipeline Simulation
 async function startPipeline(file) {
     if (typeof window.resetMaterialsDrawer === 'function') {
         window.resetMaterialsDrawer();
     }
     uploadContainer.classList.add('hidden');
+    resultsSection.classList.add('hidden');
+    resultsSection.classList.remove('flex');
     loadingState.classList.remove('hidden');
 
     let pipelineRes = null;
