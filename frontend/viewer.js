@@ -136,7 +136,8 @@ function draw2DView() {
     const showImage = document.getElementById('cb-image')?.checked !== false;
     const showWalls = document.getElementById('cb-walls')?.checked !== false;
     const showRooms = document.getElementById('cb-rooms')?.checked !== false;
-    const showOpenings = document.getElementById('cb-openings')?.checked !== false;
+    const showDoors    = document.getElementById('cb-doors')?.checked !== false;
+    const showWindows  = document.getElementById('cb-windows')?.checked !== false;
 
     if (showImage) {
         ctx2d.globalAlpha = 1.0;
@@ -181,29 +182,117 @@ function draw2DView() {
             });
         }
 
-        if (showOpenings && globalParsedGeom2D.openings) {
-            globalParsedGeom2D.openings.forEach(op => {
+        if (showDoors && globalParsedGeom2D.openings) {
+            globalParsedGeom2D.openings.filter(op => op.type === 'Door').forEach(op => {
                 const px = dx + op.x * scaleX;
                 const py = dy + op.y * scaleY;
-                if (op.type === "Door") {
-                    ctx2d.beginPath();
-                    ctx2d.arc(px, py, (op.radius_px * scaleX) || 15, 0, Math.PI * 2);
-                    ctx2d.strokeStyle = "#f59e0b";
-                    ctx2d.setLineDash([4, 2]);
-                    ctx2d.stroke();
-                    ctx2d.setLineDash([]);
-                } else if (op.type === "Window") {
-                    ctx2d.fillStyle = "rgba(59, 130, 246, 0.6)";
-                    ctx2d.beginPath();
-                    ctx2d.arc(px, py, ((op.span_px * scaleX) / 2) || 12, 0, Math.PI * 2);
-                    ctx2d.fill();
+                const r  = Math.max(12, (op.radius_px || 0) * scaleX);
+
+                // ── Find nearest wall and get its screen-space angle ──────────
+                let wallAngle = 0; // default: horizontal
+                if (globalParsedGeom2D.walls && globalParsedGeom2D.walls.length) {
+                    let bestDist = Infinity;
+                    globalParsedGeom2D.walls.forEach(w => {
+                        const wmx = dx + ((w.x1 + w.x2) / 2) * scaleX;
+                        const wmy = dy + ((w.y1 + w.y2) / 2) * scaleY;
+                        const d = Math.hypot(px - wmx, py - wmy);
+                        if (d < bestDist) {
+                            bestDist = d;
+                            wallAngle = Math.atan2(
+                                (w.y2 - w.y1) * scaleY,
+                                (w.x2 - w.x1) * scaleX
+                            );
+                        }
+                    });
                 }
+
+                // Hinge at pivot, panel goes along wall direction (closed position)
+                const hingeX = px - Math.cos(wallAngle) * r * 0.5;
+                const hingeY = py - Math.sin(wallAngle) * r * 0.5;
+                const panelEndX = hingeX + Math.cos(wallAngle) * r;
+                const panelEndY = hingeY + Math.sin(wallAngle) * r;
+
+                // ── 1. Door panel line (closed position, along wall) ──────────
+                ctx2d.beginPath();
+                ctx2d.moveTo(hingeX, hingeY);
+                ctx2d.lineTo(panelEndX, panelEndY);
+                ctx2d.strokeStyle = '#f59e0b';
+                ctx2d.lineWidth = 2.5;
+                ctx2d.setLineDash([]);
+                ctx2d.stroke();
+
+                // ── 2. Swing arc — 90° from wall direction to perpendicular ───
+                ctx2d.beginPath();
+                ctx2d.arc(hingeX, hingeY, r, wallAngle, wallAngle + Math.PI / 2, false);
+                ctx2d.strokeStyle = '#f59e0b';
+                ctx2d.lineWidth = 1.5;
+                ctx2d.setLineDash([5, 3]);
+                ctx2d.stroke();
+                ctx2d.setLineDash([]);
+
+                // ── 3. Hinge pivot dot ────────────────────────────────────────
+                ctx2d.beginPath();
+                ctx2d.arc(hingeX, hingeY, 3.5, 0, Math.PI * 2);
+                ctx2d.fillStyle = '#f59e0b';
+                ctx2d.fill();
+            });
+        }
+
+        if (showWindows && globalParsedGeom2D.openings) {
+            globalParsedGeom2D.openings.filter(op => op.type === 'Window').forEach(op => {
+                const px   = dx + op.x * scaleX;
+                const py   = dy + op.y * scaleY;
+                const half = Math.max(10, ((op.span_px || 24) * scaleX) / 2);
+                const THICK = 7; // glazing band thickness in canvas px
+
+                // ── Find nearest wall angle in screen space ───────────────────
+                let wallAngle = 0;
+                if (globalParsedGeom2D.walls && globalParsedGeom2D.walls.length) {
+                    let bestDist = Infinity;
+                    globalParsedGeom2D.walls.forEach(w => {
+                        const wmx = dx + ((w.x1 + w.x2) / 2) * scaleX;
+                        const wmy = dy + ((w.y1 + w.y2) / 2) * scaleY;
+                        const d = Math.hypot(px - wmx, py - wmy);
+                        if (d < bestDist) {
+                            bestDist = d;
+                            wallAngle = Math.atan2(
+                                (w.y2 - w.y1) * scaleY,
+                                (w.x2 - w.x1) * scaleX
+                            );
+                        }
+                    });
+                }
+
+                // ── Draw rotated window band ─────────────────────────────────
+                ctx2d.save();
+                ctx2d.translate(px, py);
+                ctx2d.rotate(wallAngle);  // align to wall direction
+
+                // Glazing fill
+                ctx2d.fillStyle = 'rgba(59, 130, 246, 0.25)';
+                ctx2d.fillRect(-half, -THICK / 2, half * 2, THICK);
+
+                // Glazing outline
+                ctx2d.strokeStyle = '#3b82f6';
+                ctx2d.lineWidth = 1.5;
+                ctx2d.setLineDash([]);
+                ctx2d.strokeRect(-half, -THICK / 2, half * 2, THICK);
+
+                // Centre pane divider (perpendicular to wall span)
+                ctx2d.beginPath();
+                ctx2d.moveTo(0, -THICK / 2);
+                ctx2d.lineTo(0,  THICK / 2);
+                ctx2d.strokeStyle = '#93c5fd';
+                ctx2d.lineWidth = 1;
+                ctx2d.stroke();
+
+                ctx2d.restore();
             });
         }
     }
 }
 
-['cb-image', 'cb-walls', 'cb-rooms', 'cb-openings'].forEach(id => {
+['cb-image', 'cb-walls', 'cb-rooms', 'cb-doors', 'cb-windows'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('change', draw2DView);
 });
@@ -289,8 +378,19 @@ async function startPipeline(file) {
     }
     
     if (pipelineRes && pipelineRes.model) {
+        // Build door/window data for 3D rendering
+        const geom = pipelineRes.geom || {};
+        const imgSize = geom.image_size_px || { width: 600, height: 400 };
+        const pxPerM  = (pipelineRes.model.scale || 100);
+        const openingsPayload = {
+            list:  (geom.openings || []),
+            imgW:  imgSize.width,
+            imgH:  imgSize.height,
+            scale: pxPerM
+        };
+
         // Initialize Three.js View with the REAL architectural model
-        initThreeJS(pipelineRes.model.walls);
+        initThreeJS(pipelineRes.model.walls, openingsPayload);
         
         // Populate Table and Cards dynamically from the tradeoff_engine outputs
         const wallsWithExplanations = pipelineRes.materials.map((m, idx) => ({
@@ -310,7 +410,7 @@ async function startPipeline(file) {
 // --- Three.js Implementation --- //
 let scene, camera, renderer, controls, gui;
 
-function initThreeJS(walls) {
+function initThreeJS(walls, pipelineOpenings = null) {
     const container = document.getElementById('canvas-container');
     
     // Clear old canvases if any
@@ -323,9 +423,8 @@ function initThreeJS(walls) {
     gui.domElement.style.left = '10px';
     container.appendChild(gui.domElement);
 
-    const guiParams = { showLoadBearing: true, showPartitions: true };
+    const guiParams = { showLoadBearing: true, showPartitions: true, showDoors3D: true, showWindows3D: true };
     const wallsFolder = gui.addFolder('Wall Visibility');
-    
     wallsFolder.add(guiParams, 'showLoadBearing').name('Load Bearing').onChange(v => {
         scene.traverse((child) => {
             if (child.isMesh && child.userData.type === 'load-bearing') child.visible = v;
@@ -337,6 +436,19 @@ function initThreeJS(walls) {
         });
     });
     wallsFolder.open();
+
+    const openingsFolder = gui.addFolder('Openings');
+    openingsFolder.add(guiParams, 'showDoors3D').name('Doors').onChange(v => {
+        scene.traverse((child) => {
+            if (child.isMesh && child.userData.type === 'door') child.visible = v;
+        });
+    });
+    openingsFolder.add(guiParams, 'showWindows3D').name('Windows').onChange(v => {
+        scene.traverse((child) => {
+            if (child.isMesh && child.userData.type === 'window') child.visible = v;
+        });
+    });
+    openingsFolder.open();
 
     // Scene
     scene = new THREE.Scene();
@@ -437,6 +549,127 @@ function initThreeJS(walls) {
         
         scene.add(mesh);
     });
+
+    // ── 3D Doors ───────────────────────────────────────────────────
+    // Tall amber slab standing at floor with an arch-top shape
+    if (walls.length > 0 && walls[0].windows !== undefined) {
+        // Only render if real pipeline data is available
+        const scaleM = walls[0].span_metres > 0
+            ? (walls[0].length_px || 100) / (walls[0].span_metres || 1) / 100
+            : 1;
+    }
+
+    // Freestanding door markers placed at opening centroids
+    const doorMat = new THREE.MeshStandardMaterial({
+        color: 0xf59e0b, roughness: 0.6, metalness: 0.2
+    });
+    const windowMat = new THREE.MeshStandardMaterial({
+        color: 0x60a5fa, roughness: 0.1, metalness: 0.1,
+        transparent: true, opacity: 0.45
+    });
+
+    // Helper: arch shape for a door
+    function _doorShape(w, h) {
+        const s = new THREE.Shape();
+        s.moveTo(-w/2, 0);
+        s.lineTo(-w/2, h * 0.7);
+        s.quadraticCurveTo(-w/2, h, 0, h);
+        s.quadraticCurveTo( w/2, h, w/2, h * 0.7);
+        s.lineTo(w/2, 0);
+        s.closePath();
+        return s;
+    }
+
+    // Derive openings from the scale → only run when real model data present
+    if (typeof pipelineOpenings !== 'undefined' && pipelineOpenings) {
+        const imgW = pipelineOpenings.imgW || 600;
+        const imgH = pipelineOpenings.imgH || 400;
+        const sM   = pipelineOpenings.scale || 100;
+
+        // Helper: find closest wall to a 2D point and return its angle (radians)
+        function _nearestWallAngle(xM, zM) {
+            let best = null;
+            let bestDist = Infinity;
+            walls.forEach(w => {
+                // Mid-point of wall
+                const mx = (w.x1 + w.x2) / 2;
+                const mz = (w.z1 + w.z2) / 2;
+                const d = Math.hypot(xM - mx, zM - mz);
+                if (d < bestDist) { bestDist = d; best = w; }
+            });
+            if (!best) return 0;
+            return Math.atan2(best.z2 - best.z1, best.x2 - best.x1);
+        }
+
+        pipelineOpenings.list.forEach(op => {
+            const xM = (op.x - imgW / 2) / sM;
+            const zM = (op.y - imgH / 2) / sM;
+
+            if (op.type === 'Door') {
+                const doorW = Math.max(0.7, (op.radius_px * 2 || 70) / sM);
+                const doorH = 2.1;
+                const angle = _nearestWallAngle(xM, zM);
+
+                // Solid door panel — shown at 45° open from wall
+                const panelGeo = new THREE.BoxGeometry(doorW, doorH, 0.05);
+                const panelMat = new THREE.MeshStandardMaterial({
+                    color: 0xd97706, roughness: 0.5, metalness: 0.2
+                });
+                const panel = new THREE.Mesh(panelGeo, panelMat);
+
+                const hingeOffsetX = Math.cos(angle) * doorW / 2;
+                const hingeOffsetZ = Math.sin(angle) * doorW / 2;
+                panel.position.set(
+                    xM - hingeOffsetX * 0.5,
+                    doorH / 2,
+                    zM - hingeOffsetZ * 0.5
+                );
+                panel.rotation.y = -angle + Math.PI / 4;
+                panel.userData = { type: 'door' };
+                panel.castShadow = true;
+                panel.receiveShadow = true;
+
+                // Door edge frame
+                const edgeGeo = new THREE.EdgesGeometry(panelGeo);
+                panel.add(new THREE.LineSegments(edgeGeo,
+                    new THREE.LineBasicMaterial({ color: 0xfbbf24 })));
+
+                scene.add(panel);
+
+            } else if (op.type === 'Window') {
+                const winW   = Math.max(0.3, (op.span_px || 40) / sM);
+                const sill   = 1.0;    // bottom of window in metres
+                const head   = 2.2;    // top of window in metres
+                const winH   = head - sill;
+                const angle  = _nearestWallAngle(xM, zM);
+
+                // Find the nearest wall's thickness so the panel fills it flush
+                let wallThk = 0.15;
+                walls.forEach(w => {
+                    const mx = (w.x1 + w.x2) / 2;
+                    const mz = (w.z1 + w.z2) / 2;
+                    if (Math.hypot(xM - mx, zM - mz) < 1.5) {
+                        wallThk = w.thickness || 0.15;
+                    }
+                });
+
+                const winGeo = new THREE.BoxGeometry(winW, winH, wallThk + 0.02);
+                const winMesh = new THREE.Mesh(winGeo, windowMat);
+
+                // Place at sill centre height, aligned to wall angle
+                winMesh.position.set(xM, sill + winH / 2, zM);
+                winMesh.rotation.y = -angle;  // match wall rotation
+                winMesh.userData = { type: 'window' };
+                scene.add(winMesh);
+
+                // Blue wire frame on top
+                const frameGeo = new THREE.EdgesGeometry(winGeo);
+                const frameMesh = new THREE.LineSegments(frameGeo,
+                    new THREE.LineBasicMaterial({ color: 0x3b82f6 }));
+                winMesh.add(frameMesh);
+            }
+        });
+    }
 
     // Reset View Button
     document.getElementById('reset-cam').addEventListener('click', () => {
