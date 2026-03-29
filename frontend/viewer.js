@@ -64,6 +64,34 @@ const resultsSection = document.getElementById('results-section');
 const materialsTableBody = document.getElementById('materials-table-body');
 const llmCardsContainer = document.getElementById('llm-cards-container');
 
+// Toggle Elements
+const toggleViewBtn = document.getElementById('toggle-view');
+const container3D = document.getElementById('canvas-container');
+const container2D = document.getElementById('canvas-container-2d');
+const resetCamBtn = document.getElementById('reset-cam');
+const canvas2d = document.getElementById('canvas-2d');
+const ctx2d = canvas2d ? canvas2d.getContext('2d') : null;
+
+let is2DView = true;
+
+if (toggleViewBtn) {
+    toggleViewBtn.addEventListener('click', () => {
+        is2DView = !is2DView;
+        if (is2DView) {
+            container3D.classList.add('hidden');
+            resetCamBtn.classList.add('hidden');
+            container2D.classList.remove('hidden');
+            toggleViewBtn.textContent = 'Switch to 3D';
+        } else {
+            container2D.classList.add('hidden');
+            container3D.classList.remove('hidden');
+            resetCamBtn.classList.remove('hidden');
+            toggleViewBtn.textContent = 'Switch to 2D';
+        }
+    });
+}
+
+
 // Mock Drag and Drop
 dropZone.addEventListener('dragover', (e) => {
     e.preventDefault();
@@ -90,17 +118,124 @@ fileUpload.addEventListener('change', (e) => {
 });
 
 // Start Pipeline Simulation
-function startPipeline(file) {
+async function startPipeline(file) {
     // Hide Upload
     uploadContainer.classList.add('hidden');
     // Show Loading
     loadingState.classList.remove('hidden');
 
-    // Simulate API Call delay (since backend is stage 1-6)
+    let parsedGeom = null;
+    if (file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        try {
+            const res = await fetch('http://127.0.0.1:5000/parse', { method: 'POST', body: formData });
+            parsedGeom = await res.json();
+        } catch(e) { console.error("Parse failed", e); }
+    }
+
+    // Simulate API Call delay 
     setTimeout(() => {
         loadingState.classList.add('hidden');
         resultsSection.classList.remove('hidden');
         resultsSection.classList.add('flex');
+        
+        // Show 2D View by Default
+        is2DView = true;
+        container3D.classList.add('hidden');
+        resetCamBtn.classList.add('hidden');
+        container2D.classList.remove('hidden');
+        if (toggleViewBtn) {
+            toggleViewBtn.textContent = 'Switch to 3D';
+            toggleViewBtn.classList.remove('hidden');
+        }
+
+        // Render the 2D uploaded photo and detections
+        if (file && ctx2d) {
+            const reader = new FileReader();
+            reader.onload = e => {
+                const img = new Image();
+                img.onload = () => {
+                    const containerW = container2D.clientWidth || 800;
+                    const containerH = container2D.clientHeight || 500;
+                    canvas2d.width = containerW;
+                    canvas2d.height = containerH;
+                    
+                    const scale = Math.min(containerW / img.width, containerH / img.height) * 0.9;
+                    const drawW = img.width * scale;
+                    const drawH = img.height * scale;
+                    const dx = (containerW - drawW) / 2;
+                    const dy = (containerH - drawH) / 2;
+                    
+                    ctx2d.clearRect(0, 0, containerW, containerH);
+                    ctx2d.drawImage(img, dx, dy, drawW, drawH);
+                    
+                    // Draw real OpenCV 2D detections
+                    if (parsedGeom) {
+                        ctx2d.lineWidth = 2;
+                        
+                        // Scale factors for the image based on its natural vs drawn size
+                        const scaleX = drawW / img.width;
+                        const scaleY = drawH / img.height;
+                        
+                        // Draw Rooms
+                        if (parsedGeom.rooms) {
+                            parsedGeom.rooms.forEach(r => {
+                                if (r.polygon_points && r.polygon_points.length > 0) {
+                                    ctx2d.beginPath();
+                                    r.polygon_points.forEach((p, idx) => {
+                                        const px = dx + p[0] * scaleX;
+                                        const py = dy + p[1] * scaleY;
+                                        if (idx === 0) ctx2d.moveTo(px, py);
+                                        else ctx2d.lineTo(px, py);
+                                    });
+                                    ctx2d.closePath();
+                                    ctx2d.fillStyle = "rgba(139, 92, 246, 0.15)";
+                                    ctx2d.fill();
+                                    ctx2d.strokeStyle = "#8b5cf6";
+                                    ctx2d.stroke();
+                                }
+                            });
+                        }
+                        
+                        // Draw Walls
+                        if (parsedGeom.walls) {
+                            parsedGeom.walls.forEach(w => {
+                                ctx2d.beginPath();
+                                ctx2d.moveTo(dx + w.x1 * scaleX, dy + w.y1 * scaleY);
+                                ctx2d.lineTo(dx + w.x2 * scaleX, dy + w.y2 * scaleY);
+                                const classification = w.classification || w.type;
+                                ctx2d.strokeStyle = (classification === "LOAD_BEARING") ? "#ef4444" : "#10b981";
+                                ctx2d.stroke();
+                            });
+                        }
+
+                        // Draw Openings (Doors/Windows) mapped properly relative to image
+                        if (parsedGeom.openings) {
+                            parsedGeom.openings.forEach(op => {
+                                const px = dx + op.x * scaleX;
+                                const py = dy + op.y * scaleY;
+                                if (op.type === "Door") {
+                                    ctx2d.beginPath();
+                                    ctx2d.arc(px, py, (op.radius_px * scaleX) || 15, 0, Math.PI * 2);
+                                    ctx2d.strokeStyle = "#f59e0b";
+                                    ctx2d.setLineDash([4, 2]);
+                                    ctx2d.stroke();
+                                    ctx2d.setLineDash([]);
+                                } else if (op.type === "Window") {
+                                    ctx2d.fillStyle = "rgba(59, 130, 246, 0.6)";
+                                    ctx2d.beginPath();
+                                    ctx2d.arc(px, py, ((op.span_px * scaleX) / 2) || 12, 0, Math.PI * 2);
+                                    ctx2d.fill();
+                                }
+                            });
+                        }
+                    }
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
         
         // Mock Response Data
         const mockPipelineData = getMockData();

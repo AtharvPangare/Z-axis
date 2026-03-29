@@ -64,8 +64,45 @@ def parse_floor_plan(image_path):
                 })
                 r_idx += 1
                 
+    # Detect Doors (Arcs -> Circles)
+    blur = cv2.GaussianBlur(gray, (9, 9), 2)
+    circles = cv2.HoughCircles(blur, cv2.HOUGH_GRADIENT, 1, 20,
+                               param1=50, param2=30, minRadius=10, maxRadius=80)
+    
+    openings = []
+    if circles is not None:
+        circles = np.uint16(np.around(circles))
+        for i in circles[0, :]:
+            openings.append({
+                "type": "Door",
+                "x": int(i[0]),
+                "y": int(i[1]),
+                "radius_px": int(i[2])
+            })
+            
+    # Detect Windows (Thin Rectangles from contours)
+    for c in contours:
+        area = cv2.contourArea(c)
+        if 50 < area < 800:
+            x,y,w,h = cv2.boundingRect(c)
+            aspect_ratio = float(w)/h if h > 0 else 0
+            if aspect_ratio > 3.5 or aspect_ratio < 0.28:
+                rx, ry = round(x/10.0)*10, round(y/10.0)*10
+                span = max(w, h)
+                if span > 0:
+                    openings.append({
+                        "type": "Window",
+                        "x": int(rx + w/2),
+                        "y": int(ry + h/2),
+                        "span_px": int(span)
+                    })
+                
     return {
+        "image_size_px": {
+            "width": img.shape[1],
+            "height": img.shape[0]
+        },
         "walls": walls,
         "rooms": rooms,
-        "openings": [] 
+        "openings": openings
     }
