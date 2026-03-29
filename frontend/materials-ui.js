@@ -37,6 +37,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (toggleBtn) toggleBtn.addEventListener('click', (e) => { e.preventDefault(); openDrawer(); });
     if (closeBtn)  closeBtn.addEventListener('click', closeDrawer);
 
+    // Auto-close drawer when navigating to other sections via navbar
+    document.querySelectorAll('nav a[href^="#"]').forEach(link => {
+        if (link.id !== 'nav-recommend-materials') {
+            link.addEventListener('click', () => {
+                if (isDrawerOpen) closeDrawer();
+            });
+        }
+    });
+
     // ── 2. Element Data ───────────────────────────────────────────────
     const elementsData = [
         {
