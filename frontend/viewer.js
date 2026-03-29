@@ -109,7 +109,9 @@ if (toggleViewBtn) {
             resetCamBtn.classList.remove('hidden');
             toggleViewBtn.textContent = 'Switch to 2D';
             // Force WebGL to grab new dynamic dimensions now that it's unhidden
-            window.dispatchEvent(new Event('resize'));
+            setTimeout(() => {
+                window.dispatchEvent(new Event('resize'));
+            }, 50);
         }
     });
 }
@@ -410,9 +412,38 @@ async function startPipeline(file) {
 // --- Three.js Implementation --- //
 let scene, camera, renderer, controls, gui;
 
+// Store global animation frame ID and resize handler to prevent leaks
+let animationFrameId = null;
+let currentResizeHandler = null;
+
 function initThreeJS(walls, pipelineOpenings = null) {
     const container = document.getElementById('canvas-container');
     
+    // Cleanup previous WebGL Context
+    if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
+    }
+    if (currentResizeHandler) {
+        window.removeEventListener('resize', currentResizeHandler);
+    }
+    if (renderer) {
+        renderer.dispose();
+        renderer.forceContextLoss();
+        renderer.domElement = null;
+    }
+    if (scene) {
+        scene.traverse((child) => {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) {
+                if (Array.isArray(child.material)) {
+                    child.material.forEach(m => m.dispose());
+                } else {
+                    child.material.dispose();
+                }
+            }
+        });
+    }
+
     // Clear old canvases if any
     container.innerHTML = '';
     
@@ -459,7 +490,19 @@ function initThreeJS(walls, pipelineOpenings = null) {
     camera.position.set(10, 15, 15);
 
     // Renderer
-    renderer = new THREE.WebGLRenderer({ antialias: true });
+    try {
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+    } catch (e) {
+        console.warn("Failed with antialias, trying without...", e);
+        try {
+            renderer = new THREE.WebGLRenderer({ antialias: false });
+        } catch (e2) {
+            console.error("WebGL completely unsupported", e2);
+            alert("Could not initialize 3D view. WebGL context failed. Please enable 'Hardware Acceleration' in your browser settings or restart your browser.");
+            return;
+        }
+    }
+    
     renderer.setSize(container.clientWidth, container.clientHeight);
     renderer.shadowMap.enabled = true;
     container.appendChild(renderer.domElement);
@@ -678,17 +721,18 @@ function initThreeJS(walls, pipelineOpenings = null) {
     });
 
     // Resize Handler
-    window.addEventListener('resize', () => {
+    currentResizeHandler = () => {
         if (container.clientWidth > 0) {
             camera.aspect = container.clientWidth / container.clientHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(container.clientWidth, container.clientHeight);
         }
-    });
+    };
+    window.addEventListener('resize', currentResizeHandler);
 
     // Animate Loop
     const animate = function () {
-        requestAnimationFrame(animate);
+        animationFrameId = requestAnimationFrame(animate);
         controls.update();
         renderer.render(scene, camera);
     };

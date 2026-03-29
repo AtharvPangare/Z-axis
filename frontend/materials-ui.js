@@ -171,7 +171,7 @@ document.addEventListener('DOMContentLoaded', () => {
             stage3.classList.add('opacity-100', 'translate-y-0');
         }, 10);
 
-        document.getElementById('analysis-title').innerHTML = `Material Ranking: <span class="text-brown-dark ml-2">${data.title}</span>`;
+        document.getElementById('analysis-title').innerHTML = `Most Recommended Materials: <span class="text-brown-dark ml-2">${data.title}</span>`;
         document.getElementById('analysis-recommended').innerText = data.recommended;
         document.getElementById('analysis-explanation').innerText  = data.explanation;
 

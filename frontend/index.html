@@ -80,7 +80,7 @@
                     <a href="#about" class="text-brown-sec hover:text-brown-primary font-medium transition-colors">About</a>
                 </div>
                 <div class="hidden md:flex items-center space-x-4">
-                    <a href="#app-section" class="inline-flex items-center px-6 py-2.5 border border-transparent text-sm font-semibold rounded-full shadow-soft text-beige-cream bg-brown-primary hover:bg-brown-dark transition-all transform hover:-translate-y-0.5">
+                    <a href="#app-section" class="inline-flex items-center px-6 py-2.5 border border-transparent text-sm font-semibold rounded-full shadow-soft text-beige-cream bg-orange-600 hover:bg-amber-800 transition-all transform hover:-translate-y-0.5">
                         Upload Plan
                     </a>
                 </div>
@@ -95,7 +95,7 @@
                 <h2 class="text-3xl font-extrabold text-black-soft flex items-center">
                     <i data-feather="cpu" class="text-brown-primary mr-3"></i> AI Material Recommendations
                 </h2>
-                <button id="close-materials" class="p-2.5 text-brown-sec hover:text-brown-primary transition-colors bg-beige-primary hover:bg-beige-light rounded-full shadow-sm border border-beige-light">
+                <button id="close-materials" class="p-2.5 text-orange-600 hover:text-amber-800 transition-colors bg-beige-primary hover:bg-beige-light rounded-full shadow-sm border border-beige-light">
                     <i data-feather="x" class="w-6 h-6"></i>
                 </button>
             </div>
@@ -144,7 +144,7 @@
             <!-- Stage 2: Cards -->
             <div class="transform transition-all duration-500 delay-200 translate-y-4 opacity-0" id="materials-stage-2">
                 <h3 class="text-xl font-bold text-black-soft mb-6">Select Element for Analysis</h3>
-                <div class="flex overflow-x-auto pb-8 hide-scrollbar snap-x snap-mandatory gap-6" id="material-cards-container">
+                <div class="flex overflow-x-auto pt-4 -mt-4 pb-8 hide-scrollbar snap-x snap-mandatory gap-6" id="material-cards-container">
                     <!-- JS will populate -->
                 </div>
             </div>
@@ -153,7 +153,7 @@
             <div id="materials-stage-3" class="hidden mt-4 bg-white rounded-[24px] shadow-sm border border-beige-light p-8 transform transition-all duration-500 opacity-0 translate-y-4">
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
                     <div>
-                        <h4 class="text-lg font-bold text-black-soft mb-6 flex items-center" id="analysis-title">Material Ranking</h4>
+                        <h4 class="text-lg font-bold text-black-soft mb-6 flex items-center" id="analysis-title">Most Recommended Materials</h4>
                         <div id="ranking-bars-container" class="space-y-6"></div>
                     </div>
                     <div class="bg-beige-primary/50 rounded-[20px] p-6 border border-beige-light opacity-0 transform translate-y-4 transition-all duration-500" id="ai-explanation-box">
@@ -184,10 +184,10 @@
                         Convert 2D Plans into Intelligent 3D Structures. The complete platform for automated structural analysis and material intelligence.
                     </p>
                     <div class="mt-8 flex flex-col sm:flex-row gap-4 hero-buttons font-sans">
-                        <a href="#app-section" class="px-8 py-4 border border-transparent text-lg font-semibold rounded-full shadow-soft text-beige-cream bg-brown-primary hover:bg-brown-dark transition-all transform hover:-translate-y-1 hover:shadow-elevate text-center">
+                        <a href="#app-section" class="px-8 py-4 border border-transparent text-lg font-semibold rounded-full shadow-soft text-beige-cream bg-orange-600 hover:bg-amber-800 transition-all transform hover:-translate-y-1 hover:shadow-elevate text-center">
                             Upload Plan
                         </a>
-                        <a href="#app-section" class="px-8 py-4 border-2 border-brown-primary text-lg font-semibold rounded-full text-brown-dark bg-beige-primary hover:bg-beige-light transition-all transform hover:-translate-y-1 text-center">
+                        <a href="#app-section" class="px-8 py-4 border-2 border-orange-600 text-lg font-semibold rounded-full text-orange-600 bg-beige-primary hover:bg-beige-light hover:text-amber-800 hover:border-amber-800 transition-all transform hover:-translate-y-1 text-center">
                             Try Demo
                         </a>
                     </div>
@@ -286,7 +286,7 @@
                         <p class="text-xl font-semibold text-black-soft mb-2">Drag & drop your floor plan here</p>
                         <p class="text-sm text-brown-sec mb-6">Supports JPG, PNG (Max 10MB)</p>
                         <input type="file" id="file-upload" class="hidden" accept="image/png, image/jpeg">
-                        <button class="px-8 py-3 border border-transparent text-sm font-semibold rounded-full text-beige-cream bg-brown-primary hover:bg-brown-dark shadow-soft transition-colors">
+                        <button class="px-8 py-3 border border-transparent text-sm font-semibold rounded-full text-beige-cream bg-orange-600 hover:bg-amber-800 shadow-soft transition-colors">
                             Select File
                         </button>
                     </div>
@@ -325,7 +325,7 @@
                                 Switch to 3D
                             </button>
                             <button id="reset-cam"
-                                class="hidden text-sm font-medium text-brown-primary hover:text-brown-dark bg-white border border-beige-light px-4 py-2 rounded-full shadow-sm transition-colors">
+                                class="hidden text-sm font-medium text-orange-600 hover:text-amber-800 bg-white border border-beige-light px-4 py-2 rounded-full shadow-sm transition-colors">
                                 Reset View
                             </button>
                         </div>
@@ -375,7 +375,7 @@
                 <div class="bg-white rounded-[24px] overflow-hidden shadow-sm border border-beige-light p-8">
                     <div class="flex justify-between items-center mb-6">
                         <h3 class="text-2xl font-bold text-black-soft">Material Requirements</h3>
-                        <button id="export-pdf" class="hidden flex items-center text-sm font-semibold text-beige-cream bg-brown-primary px-4 py-2 rounded-lg hover:bg-brown-dark transition shadow-sm">
+                        <button id="export-pdf" class="hidden flex items-center text-sm font-semibold text-beige-cream bg-orange-600 hover:bg-amber-800 px-4 py-2 rounded-lg transition shadow-sm">
                             <i data-feather="download" class="w-4 h-4 mr-2"></i> Export Report
                         </button>
                     </div>
