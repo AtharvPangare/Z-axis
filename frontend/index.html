@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Z-Axis: AI Structural Intelligence Platform</title>
+    <meta name="description" content="Transform 2D architectural plans into intelligent 3D structures with real-time AI and material optimization.">
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        cyan: {
+                            50: '#ECFEFF',
+                            100: '#CFFAFE',
+                            400: '#22d3ee',
+                            500: '#06B6D4',
+                            600: '#0891B2',
+                        },
+                        slate: {
+                            50: '#F8FAFC',
+                            100: '#F1F5F9',
+                            500: '#64748B',
+                            900: '#0F172A'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    backgroundImage: {
+                        'hero-gradient': 'linear-gradient(to bottom right, #F8FAFC, #ECFEFF)',
+                    },
+                    boxShadow: {
+                        'soft': '0 10px 40px -10px rgba(6, 182, 212, 0.15)',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="styles.css">
+    
+    <!-- Three.js and OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    
+    <!-- GSAP for scroll animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+
+    <!-- Feather Icons -->
+    <script src="https://unpkg.com/feather-icons"></script>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans antialiased overflow-x-hidden">
+
+    <!-- Navbar -->
+    <nav class="fixed w-full top-0 z-50 bg-white/70 backdrop-blur-md border-b border-white/20 shadow-sm transition-all duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-20">
+                <!-- Logo -->
+                <div class="flex-shrink-0 flex items-center">
+                    <a href="#" class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-cyan-600">
+                        Z-Axis
+                    </a>
+                </div>
+                
+                <!-- Center Nav Tools -->
+                <div class="hidden md:flex space-x-8 items-center">
+                    <a href="#app-section" class="text-slate-500 hover:text-cyan-600 font-medium transition-colors">Create 3D Plan</a>
+                    <a href="#features" class="text-slate-500 hover:text-cyan-600 font-medium transition-colors">Recommend Materials</a>
+                    <a href="#features" class="text-slate-500 hover:text-cyan-600 font-medium transition-colors">Cost Estimator</a>
+                    <a href="#about" class="text-slate-500 hover:text-cyan-600 font-medium transition-colors">About</a>
+                </div>
+                
+                <!-- Right Side Button -->
+                <div class="hidden md:flex items-center space-x-4">
+                    <a href="#app-section" class="inline-flex items-center px-6 py-2.5 border border-transparent text-sm font-semibold rounded-full shadow-soft text-white bg-cyan-500 hover:bg-cyan-600 transition-all transform hover:-translate-y-0.5">
+                        Try Now
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="relative min-h-screen pt-32 pb-20 overflow-hidden flex items-center bg-hero-gradient">
+        <!-- Parallax Background Image container -->
+        <div class="absolute inset-0 z-0 opacity-10 pointer-events-none" id="hero-bg-container">
+            <!-- SVG floor plan abstract background -->
+            <svg class="w-full h-full object-cover" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#06B6D4" stroke-width="0.5"/>
+                    </pattern>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#grid)" />
+            </svg>
+        </div>
+
+        <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center flex flex-col items-center">
+            <h1 class="text-5xl md:text-7xl font-extrabold tracking-tight text-slate-900 mb-6 drop-shadow-sm hero-title">
+                Transform Your <br class="hidden md:block" /> 2D Plans into Intelligent 3D Structures
+            </h1>
+            <p class="mt-4 max-w-2xl mx-auto text-xl text-slate-500 mb-10 hero-subtitle">
+                Z-Axis uses AI to convert floor plans into 3D models and recommend optimal construction materials.
+            </p>
+            <div class="mt-8 flex justify-center flex-col sm:flex-row gap-4 hero-buttons">
+                <a href="#app-section" class="px-8 py-4 border border-transparent text-lg font-semibold rounded-full shadow-soft text-white bg-cyan-500 hover:bg-cyan-600 transition-all transform hover:-translate-y-1 hover:shadow-lg">
+                    Try Now
+                </a>
+                <a href="#app-section" class="px-8 py-4 border-2 border-cyan-500 text-lg font-semibold rounded-full text-cyan-600 bg-white hover:bg-cyan-50 transition-all transform hover:-translate-y-1">
+                    Upload Plan
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Horizontal Scroll Features Section -->
+    <section id="features" class="py-24 bg-slate-50 overflow-hidden relative border-y border-slate-100">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-12">
+            <h2 class="text-3xl font-bold text-slate-900 mb-4 section-title">Capabilities</h2>
+        </div>
+        
+        <div class="flex overflow-x-auto pb-10 hide-scrollbar snap-x snap-mandatory px-4 sm:px-6 lg:px-8 scroll-smooth" id="horizontal-scroll-container">
+            <div class="flex flex-nowrap gap-6" id="cards-wrapper">
+                
+                <!-- Card 1 -->
+                <div class="snap-center shrink-0 w-72 h-72 bg-white rounded-3xl p-8 shadow-sm hover:shadow-soft border border-transparent hover:border-cyan-400 transition-all duration-300 transform hover:-translate-y-2 group flex flex-col justify-center items-center text-center feature-card">
+                    <div class="w-16 h-16 rounded-full bg-cyan-50 flex items-center justify-center mb-6 group-hover:bg-cyan-100 transition-colors">
+                        <i data-feather="box" class="text-cyan-500 w-8 h-8"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-slate-900 mb-3 group-hover:text-cyan-600 transition-colors">Create 3D Plan</h3>
+                    <p class="text-slate-500 leading-relaxed">Convert 2D floor plan into interactive 3D model</p>
+                </div>
+
+                <!-- Card 2 -->
+                <div class="snap-center shrink-0 w-72 h-72 bg-white rounded-3xl p-8 shadow-sm hover:shadow-soft border border-transparent hover:border-cyan-400 transition-all duration-300 transform hover:-translate-y-2 group flex flex-col justify-center items-center text-center feature-card">
+                    <div class="w-16 h-16 rounded-full bg-cyan-50 flex items-center justify-center mb-6 group-hover:bg-cyan-100 transition-colors">
+                        <i data-feather="layers" class="text-cyan-500 w-8 h-8"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-slate-900 mb-3 group-hover:text-cyan-600 transition-colors">Recommend Materials</h3>
+                    <p class="text-slate-500 leading-relaxed">AI suggests optimal building materials</p>
+                </div>
+
+                <!-- Card 3 -->
+                <div class="snap-center shrink-0 w-72 h-72 bg-white rounded-3xl p-8 shadow-sm hover:shadow-soft border border-transparent hover:border-cyan-400 transition-all duration-300 transform hover:-translate-y-2 group flex flex-col justify-center items-center text-center feature-card">
+                    <div class="w-16 h-16 rounded-full bg-cyan-50 flex items-center justify-center mb-6 group-hover:bg-cyan-100 transition-colors">
+                        <i data-feather="dollar-sign" class="text-cyan-500 w-8 h-8"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-slate-900 mb-3 group-hover:text-cyan-600 transition-colors">Cost Estimation</h3>
+                    <p class="text-slate-500 leading-relaxed">Estimate construction cost instantly</p>
+                </div>
+
+                <!-- Card 4 -->
+                <div class="snap-center shrink-0 w-72 h-72 bg-white rounded-3xl p-8 shadow-sm hover:shadow-soft border border-transparent hover:border-cyan-400 transition-all duration-300 transform hover:-translate-y-2 group flex flex-col justify-center items-center text-center feature-card">
+                    <div class="w-16 h-16 rounded-full bg-cyan-50 flex items-center justify-center mb-6 group-hover:bg-cyan-100 transition-colors">
+                        <i data-feather="hexagon" class="text-cyan-500 w-8 h-8"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-slate-900 mb-3 group-hover:text-cyan-600 transition-colors">Structural Analysis</h3>
+                    <p class="text-slate-500 leading-relaxed">Detect load-bearing walls and optimize layout</p>
+                </div>
+
+                <!-- Card 5 -->
+                <div class="snap-center shrink-0 w-72 h-72 bg-white rounded-3xl p-8 shadow-sm hover:shadow-soft border border-transparent hover:border-cyan-400 transition-all duration-300 transform hover:-translate-y-2 group flex flex-col justify-center items-center text-center feature-card pr-8 lg:pr-0">
+                    <div class="w-16 h-16 rounded-full bg-cyan-50 flex items-center justify-center mb-6 group-hover:bg-cyan-100 transition-colors">
+                        <i data-feather="cpu" class="text-cyan-500 w-8 h-8"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-slate-900 mb-3 group-hover:text-cyan-600 transition-colors">AI Suggestions</h3>
+                    <p class="text-slate-500 leading-relaxed">Intelligent structural recommendations</p>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- Split Layout Section -->
+    <section id="about" class="py-24 bg-white relative">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col lg:flex-row items-center gap-16">
+                <!-- Left Text -->
+                <div class="lg:w-1/2 split-text">
+                    <div class="inline-block px-4 py-1.5 rounded-full bg-cyan-50 text-cyan-600 text-sm font-semibold mb-6">Pipeline Process</div>
+                    <h2 class="text-4xl md:text-5xl font-extrabold text-slate-900 mb-6 leading-tight">
+                        AI-Powered <br/><span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-cyan-600">Structural Intelligence</span>
+                    </h2>
+                    <p class="text-lg text-slate-500 mb-8 leading-relaxed">
+                        Smart AI analysis that transforms 2D architectural layouts into optimized 3D structures. From image parsing using OpenCV to cost-strength material prediction, Z-Axis redefines construction workflows.
+                    </p>
+                    <ul class="space-y-4 mb-8">
+                        <li class="flex items-center text-slate-700">
+                            <i data-feather="check-circle" class="text-cyan-500 mr-3 w-5 h-5"></i> <span>Automated Wall & Room parsing</span>
+                        </li>
+                        <li class="flex items-center text-slate-700">
+                            <i data-feather="check-circle" class="text-cyan-500 mr-3 w-5 h-5"></i> <span>Red highlights for load-bearing structures</span>
+                        </li>
+                        <li class="flex items-center text-slate-700">
+                            <i data-feather="check-circle" class="text-cyan-500 mr-3 w-5 h-5"></i> <span>Explainable AI recommendations via LLM</span>
+                        </li>
+                    </ul>
+                </div>
+                
+                <!-- Right Image / Illustration -->
+                <div class="lg:w-1/2 relative split-image">
+                    <div class="absolute inset-0 bg-cyan-100 rounded-[40px] transform rotate-3 scale-105 z-0"></div>
+                    <div class="relative z-10 bg-slate-100 rounded-[40px] p-6 shadow-xl border border-white">
+                        <!-- Abstract placeholder for illustration -->
+                        <div class="w-full aspect-[4/3] rounded-[24px] bg-white flex items-center justify-center overflow-hidden border border-slate-200">
+                            <!-- Let's render a mini 3D model icon or illustration SVG -->
+                            <svg width="200" height="200" viewBox="0 0 24 24" fill="none" stroke="#06B6D4" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                                <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                                <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                                <polyline points="12 12 12 12 12 12 12 12"></polyline>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Application Section (Stage 7 Implementation) -->
+    <section id="app-section" class="py-24 bg-slate-100 relative">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center max-w-3xl mx-auto mb-16">
+                <h2 class="text-3xl md:text-4xl font-bold text-slate-900 mb-4 section-title">Generate Your 3D Model</h2>
+                <p class="text-lg text-slate-500">Upload a 2D floor plan to see the pipeline in action. The structural intelligence system will analyze it immediately.</p>
+            </div>
+
+            <!-- Upload Area -->
+            <div class="bg-white rounded-[32px] shadow-sm p-8 md:p-12 mb-12 border border-slate-200 text-center" id="upload-container">
+                <div class="max-w-xl mx-auto">
+                    <div class="border-2 border-dashed border-cyan-300 rounded-2xl p-12 bg-cyan-50/50 hover:bg-cyan-50 transition-colors cursor-pointer group" id="drop-zone" onclick="document.getElementById('file-upload').click()">
+                        <i data-feather="upload-cloud" class="w-16 h-16 text-cyan-500 mx-auto mb-4 group-hover:-translate-y-2 transition-transform duration-300"></i>
+                        <p class="text-xl font-semibold text-slate-700 mb-2">Drag & drop your floor plan here</p>
+                        <p class="text-sm text-slate-500 mb-6">Supports JPG, PNG (Max 10MB)</p>
+                        <input type="file" id="file-upload" class="hidden" accept="image/png, image/jpeg">
+                        <button class="px-6 py-2 border border-transparent text-sm font-semibold rounded-full text-white bg-slate-900 hover:bg-slate-800 transition-colors">
+                            Select File
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loading State (Hidden by default) -->
+            <div id="loading-state" class="hidden text-center py-20">
+                <div class="relative w-24 h-24 mx-auto mb-6">
+                    <div class="absolute inset-0 rounded-full border-4 border-slate-100"></div>
+                    <div class="absolute inset-0 rounded-full border-4 border-cyan-500 border-t-transparent animate-spin"></div>
+                    <div class="absolute inset-0 flex items-center justify-center">
+                        <i data-feather="cpu" class="w-8 h-8 text-cyan-500 animate-pulse"></i>
+                    </div>
+                </div>
+                <h3 class="text-2xl font-bold text-slate-900 mb-2">Analyzing Structure...</h3>
+                <p class="text-slate-500">Parsing walls, estimating loads, and running ML models</p>
+            </div>
+
+            <!-- Results Section (Hidden by default) -->
+            <div id="results-section" class="hidden flex-col gap-10">
+                
+                <!-- 3D Canvas -->
+                <div class="bg-white rounded-[32px] overflow-hidden shadow-sm border border-slate-200">
+                    <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                        <div>
+                            <h3 class="text-xl font-bold text-slate-900">3D Structural Reconstruction</h3>
+                            <p class="text-sm text-slate-500 mt-1"><span class="inline-block w-3 h-3 rounded-full bg-red-500 mr-1"></span> Load-bearing <span class="inline-block w-3 h-3 rounded-full bg-gray-400 mr-1 ml-3"></span> Partition</p>
+                        </div>
+                        <button id="reset-cam" class="text-sm font-medium text-cyan-600 hover:text-cyan-700 bg-cyan-50 px-4 py-2 rounded-full cursor-pointer">
+                            Reset View
+                        </button>
+                    </div>
+                    <div id="canvas-container" class="w-full h-[500px] bg-slate-900 relative cursor-move">
+                        <!-- Three.js renders here -->
+                    </div>
+                </div>
+
+                <!-- Material Recommendations Table -->
+                <div class="bg-white rounded-[32px] overflow-hidden shadow-sm border border-slate-200 p-8">
+                    <h3 class="text-2xl font-bold text-slate-900 mb-6">Material Recommendations</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 text-slate-500 text-sm uppercase tracking-wider">
+                                    <th class="p-4 rounded-tl-xl">Wall ID</th>
+                                    <th class="p-4">Type</th>
+                                    <th class="p-4">Recommended Material</th>
+                                    <th class="p-4">Est. Cost</th>
+                                    <th class="p-4 rounded-tr-xl">Strength Score</th>
+                                </tr>
+                            </thead>
+                            <tbody id="materials-table-body" class="divide-y divide-slate-100">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- AI Explanations -->
+                <div class="bg-white rounded-[32px] overflow-hidden shadow-sm border border-slate-200 p-8">
+                    <h3 class="text-2xl font-bold text-slate-900 mb-6 flex items-center">
+                        <i data-feather="message-square" class="text-cyan-500 mr-3"></i> AI Rationale (Claude API)
+                    </h3>
+                    <div id="llm-cards-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center">
+            <div class="mb-6 md:mb-0 text-center md:text-left">
+                <span class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-cyan-600 tracking-tight">
+                    Z-Axis
+                </span>
+                <p class="text-slate-500 mt-2 text-sm">AI Structural Intelligence Platform</p>
+            </div>
+            <div class="flex space-x-6">
+                <a href="#" class="text-slate-400 hover:text-cyan-500 transition-colors">About</a>
+                <a href="#" class="text-slate-400 hover:text-cyan-500 transition-colors">Contact</a>
+                <a href="#" class="text-slate-400 hover:text-cyan-500 transition-colors">GitHub</a>
+                <a href="#" class="text-slate-400 hover:text-cyan-500 transition-colors">Documentation</a>
+            </div>
+        </div>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 pt-8 border-t border-slate-100 text-center text-slate-400 text-sm">
+            &copy; 2026 Z-Axis Platform. Built for the AI/ML Hackathon.
+        </div>
+    </footer>
+
+    <!-- Initialize Utilities -->
+    <script>
+        feather.replace();
+    </script>
+    
+    <!-- Link External App JS -->
+    <script src="viewer.js"></script>
+</body>
+</html>
