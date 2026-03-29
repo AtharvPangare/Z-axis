@@ -100,6 +100,15 @@
                 </button>
             </div>
 
+            <!-- Empty State -->
+            <div id="drawer-empty-state" class="text-center py-20 flex flex-col justify-center items-center">
+                <i data-feather="image" class="w-16 h-16 text-brown-primary/30 mb-4"></i>
+                <h3 class="text-2xl font-bold text-black-soft mb-2">No 3D Model Analyzed Yet</h3>
+                <p class="text-brown-sec">Upload a floor plan and run the pipeline to see AI material intelligence recommendations here.</p>
+            </div>
+
+            <!-- Content Wrapper -->
+            <div id="drawer-content" class="hidden">
             <!-- Stage 1: Table Summary -->
             <div class="bg-white rounded-[24px] shadow-sm border border-beige-light p-6 mb-12 overflow-hidden transform transition-all duration-500 delay-100 translate-y-4 opacity-0" id="materials-stage-1">
                 <h3 class="text-lg font-bold text-black-soft mb-4 px-2">Project Material Summary</h3>
@@ -164,6 +173,7 @@
                     </div>
                 </div>
             </div>
+            </div> <!-- End drawer-content -->
         </div>
     </div>
 
@@ -183,9 +193,7 @@
                         <a href="#app-section" class="px-8 py-4 border border-transparent text-lg font-semibold rounded-full shadow-soft text-beige-cream bg-orange-600 hover:bg-amber-800 transition-all transform hover:-translate-y-1 hover:shadow-elevate text-center">
                             Upload Plan
                         </a>
-                        <a href="#app-section" class="px-8 py-4 border-2 border-orange-600 text-lg font-semibold rounded-full text-orange-600 bg-beige-primary hover:bg-beige-light hover:text-amber-800 hover:border-amber-800 transition-all transform hover:-translate-y-1 text-center">
-                            Try Demo
-                        </a>
+
                     </div>
                 </div>
                 <!-- Hero 3D Animation -->
@@ -323,6 +331,10 @@
                             <button id="reset-cam"
                                 class="hidden text-sm font-medium text-orange-600 hover:text-amber-800 bg-white border border-beige-light px-4 py-2 rounded-full shadow-sm transition-colors">
                                 Reset View
+                            </button>
+                            <button id="print-model"
+                                class="hidden text-sm font-medium text-orange-600 hover:text-amber-800 bg-white border border-beige-light px-4 py-2 rounded-full shadow-sm transition-colors flex items-center gap-1">
+                                <i data-feather="printer" class="w-4 h-4"></i> Print
                             </button>
                         </div>
                     </div>

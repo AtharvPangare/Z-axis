@@ -213,5 +213,45 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 600);
     }
 
+    // Expose reset function globally
+    window.resetMaterialsDrawer = () => {
+        activeCardId = null;
+        
+        const emptyState = document.getElementById('drawer-empty-state');
+        const contentState = document.getElementById('drawer-content');
+        if (emptyState) emptyState.classList.remove('hidden');
+        if (contentState) contentState.classList.add('hidden');
+
+        elementsData.forEach(item => {
+            const c = document.getElementById(`card-${item.id}`);
+            if (c) {
+                c.classList.remove('border-brown-primary', '-translate-y-2', 'shadow-elevate', 'bg-beige-primary');
+                c.classList.add('border-transparent');
+            }
+            const bg = document.getElementById(`icon-bg-${item.id}`);
+            if (bg) {
+                bg.classList.remove('bg-brown-primary');
+                bg.classList.add('bg-beige-light');
+            }
+            const svg = document.getElementById(`icon-svg-${item.id}`);
+            if (svg) {
+                svg.classList.remove('text-beige-cream');
+                svg.classList.add('text-brown-primary');
+            }
+        });
+        if (stage3) {
+            stage3.classList.add('hidden');
+            stage3.classList.remove('opacity-100', 'translate-y-0');
+            stage3.classList.add('opacity-0', 'translate-y-4');
+        }
+    };
+
+    window.showMaterialsDrawerContent = () => {
+        const emptyState = document.getElementById('drawer-empty-state');
+        const contentState = document.getElementById('drawer-content');
+        if (emptyState) emptyState.classList.add('hidden');
+        if (contentState) contentState.classList.remove('hidden');
+    };
+
     renderCards();
 });

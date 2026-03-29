@@ -101,12 +101,16 @@ if (toggleViewBtn) {
         if (is2DView) {
             container3D.classList.add('hidden');
             resetCamBtn.classList.add('hidden');
+            const pBtn = document.getElementById('print-model');
+            if(pBtn) pBtn.classList.add('hidden');
             container2D.classList.remove('hidden');
             toggleViewBtn.textContent = 'Switch to 3D';
         } else {
             container2D.classList.add('hidden');
             container3D.classList.remove('hidden');
             resetCamBtn.classList.remove('hidden');
+            const pBtn = document.getElementById('print-model');
+            if(pBtn) pBtn.classList.remove('hidden');
             toggleViewBtn.textContent = 'Switch to 2D';
             // Force WebGL to grab new dynamic dimensions now that it's unhidden
             setTimeout(() => {
@@ -327,6 +331,9 @@ fileUpload.addEventListener('change', (e) => {
 
 // Start Pipeline Simulation
 async function startPipeline(file) {
+    if (typeof window.resetMaterialsDrawer === 'function') {
+        window.resetMaterialsDrawer();
+    }
     uploadContainer.classList.add('hidden');
     loadingState.classList.remove('hidden');
 
@@ -349,6 +356,10 @@ async function startPipeline(file) {
     loadingState.classList.add('hidden');
     resultsSection.classList.remove('hidden');
     resultsSection.classList.add('flex');
+
+    if (typeof window.showMaterialsDrawerContent === 'function') {
+        window.showMaterialsDrawerContent();
+    }
     
     // Show 2D View by Default
     is2DView = true;
@@ -491,11 +502,11 @@ function initThreeJS(walls, pipelineOpenings = null) {
 
     // Renderer
     try {
-        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
     } catch (e) {
         console.warn("Failed with antialias, trying without...", e);
         try {
-            renderer = new THREE.WebGLRenderer({ antialias: false });
+            renderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
         } catch (e2) {
             console.error("WebGL completely unsupported", e2);
             alert("Could not initialize 3D view. WebGL context failed. Please enable 'Hardware Acceleration' in your browser settings or restart your browser.");
@@ -719,6 +730,44 @@ function initThreeJS(walls, pipelineOpenings = null) {
         gsap.to(camera.position, { x: 10, y: 15, z: 15, duration: 1, ease: "power2.inOut" });
         gsap.to(controls.target, { x: 0, y: 0, z: 0, duration: 1, ease: "power2.inOut" });
     });
+
+    // Print Model Button
+    const printBtnEl = document.getElementById('print-model');
+    if (printBtnEl) {
+        const newPrintBtn = printBtnEl.cloneNode(true);
+        printBtnEl.parentNode.replaceChild(newPrintBtn, printBtnEl);
+        newPrintBtn.addEventListener('click', () => {
+            if (!renderer) return;
+            renderer.render(scene, camera);
+            const dataUrl = renderer.domElement.toDataURL("image/png");
+            const win = window.open('', '_blank');
+            if (win) {
+                win.document.write(`
+                    <html>
+                    <head>
+                        <title>Print 3D Model</title>
+                        <style>
+                            body { margin: 0; display: flex; justify-content: center; align-items: center; background: #fff; min-height: 100vh; }
+                            img { max-width: 100%; max-height: 98vh; object-fit: contain; }
+                            @media print {
+                                @page { margin: 0; size: landscape; }
+                                body { margin: 0; display: block; }
+                                img { width: 100%; height: 100%; object-fit: contain; }
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <img src="${dataUrl}" onload="window.print(); window.close();" />
+                    </body>
+                    </html>
+                `);
+                win.document.close();
+            } else {
+                alert("Please allow popups to print the 3D model.");
+            }
+        });
+        if (window.feather) feather.replace();
+    }
 
     // Resize Handler
     currentResizeHandler = () => {
