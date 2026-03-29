@@ -141,7 +141,7 @@ function initThreeJS(walls) {
 
     // Scene
     scene = new THREE.Scene();
-    scene.background = new THREE.Color('#f1f5f9'); // slate-100
+    scene.background = new THREE.Color('#FAF7F2'); // beige-cream
 
     // Camera
     camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
@@ -171,7 +171,7 @@ function initThreeJS(walls) {
     scene.add(dirLight);
 
     // Floor Grid & Plane
-    const gridHelper = new THREE.GridHelper(20, 20, 0x06B6D4, 0xCBD5E1);
+    const gridHelper = new THREE.GridHelper(20, 20, 0x8B6F47, 0xE8E1D9);
     scene.add(gridHelper);
 
     const planeGeometry = new THREE.PlaneGeometry(20, 20);
@@ -239,45 +239,45 @@ function populateResults(walls) {
     walls.forEach(w => {
         // 1. Table Rows
         const typeBadgeClass = w.type === 'load-bearing' 
-            ? 'bg-red-50 text-red-600 border border-red-200' 
-            : 'bg-slate-100 text-slate-600 border border-slate-200';
+            ? 'bg-[#E8E1D9] text-[#4A3B2A] border border-[#E8E1D9]' 
+            : 'bg-white text-[#6B5B4D] border border-[#E8E1D9]';
             
         const row = document.createElement('tr');
-        row.className = "hover:bg-slate-50 transition-colors";
+        row.className = "hover:bg-white transition-colors";
         row.innerHTML = `
-            <td class="p-4 border-b border-slate-100 font-semibold text-slate-800">${w.id}</td>
-            <td class="p-4 border-b border-slate-100"><span class="px-3 py-1 text-xs rounded-full font-medium ${typeBadgeClass}">${w.type}</span></td>
-            <td class="p-4 border-b border-slate-100 font-medium text-cyan-600">${w.material}</td>
-            <td class="p-4 border-b border-slate-100 text-slate-600">${w.cost}</td>
-            <td class="p-4 border-b border-slate-100 text-slate-600"><span class="flex items-center"><i data-feather="shield" class="w-4 h-4 mr-2 text-cyan-500"></i> ${w.strength}</span></td>
+            <td class="p-4 border-b border-beige-light font-semibold text-black-soft">${w.id}</td>
+            <td class="p-4 border-b border-beige-light"><span class="px-3 py-1 text-xs rounded-full font-medium ${typeBadgeClass}">${w.type}</span></td>
+            <td class="p-4 border-b border-beige-light font-medium text-brown-dark">${w.material}</td>
+            <td class="p-4 border-b border-beige-light text-brown-sec">${w.cost}</td>
+            <td class="p-4 border-b border-beige-light text-brown-sec"><span class="flex items-center"><i data-feather="shield" class="w-4 h-4 mr-2 text-brown-primary"></i> ${w.strength}</span></td>
         `;
         materialsTableBody.appendChild(row);
 
         // 2. LLM Cards
         const card = document.createElement('div');
-        card.className = "p-6 rounded-2xl border border-slate-200 bg-white hover:border-cyan-300 transition-colors shadow-sm relative overflow-hidden group";
+        card.className = "p-6 rounded-2xl border border-beige-light bg-white hover:border-brown-primary transition-colors shadow-sm hover:shadow-elevate relative overflow-hidden group";
         
         // Add subtle accent glow for load-bearing
-        const glowColor = w.type === 'load-bearing' ? 'bg-red-50' : 'bg-slate-50';
+        const glowColor = w.type === 'load-bearing' ? 'bg-[#FAF7F2]' : 'bg-white';
         
         card.innerHTML = `
-            <div class="absolute top-0 left-0 w-2 h-full ${w.type === 'load-bearing' ? 'bg-red-400' : 'bg-slate-300'}"></div>
+            <div class="absolute top-0 left-0 w-2 h-full ${w.type === 'load-bearing' ? 'bg-[#8B6F47]' : 'bg-[#E8E1D9]'}"></div>
             <div class="ml-4">
                 <div class="flex justify-between items-start mb-4">
                     <div>
-                        <h4 class="text-lg font-bold text-slate-900">${w.id} Analysis</h4>
-                        <p class="text-xs text-slate-500 mt-1 uppercase tracking-wider">${w.material}</p>
+                        <h4 class="text-lg font-bold text-black-soft">${w.id} Analysis</h4>
+                        <p class="text-xs text-brown-sec mt-1 uppercase tracking-wider">${w.material}</p>
                     </div>
-                    <div class="bg-cyan-50 p-2 rounded-lg text-cyan-600 group-hover:bg-cyan-500 group-hover:text-white transition-colors">
+                    <div class="bg-[#FAF7F2] p-2 rounded-lg text-brown-primary group-hover:bg-brown-primary group-hover:text-beige-cream transition-colors">
                         <i data-feather="cpu" class="w-5 h-5"></i>
                     </div>
                 </div>
-                <p class="text-sm text-slate-600 border-l-2 border-slate-200 pl-4 py-1 italic leading-relaxed">
+                <p class="text-sm text-brown-sec border-l-2 border-beige-light pl-4 py-1 italic leading-relaxed">
                     "${w.explanation}"
                 </p>
-                <div class="mt-4 pt-4 border-t border-slate-100 flex gap-4 text-xs font-medium text-slate-500">
+                <div class="mt-4 pt-4 border-t border-beige-light flex gap-4 text-xs font-medium text-brown-sec">
                     <span class="flex items-center"><i data-feather="loader" class="w-3 h-3 mr-1"></i> Claude 3.5 Sonnet</span>
-                    <span class="flex items-center text-cyan-600"><i data-feather="check" class="w-3 h-3 mr-1"></i> Confirmed Pipeline</span>
+                    <span class="flex items-center text-brown-primary"><i data-feather="check" class="w-3 h-3 mr-1"></i> Confirmed Pipeline</span>
                 </div>
             </div>
         `;
