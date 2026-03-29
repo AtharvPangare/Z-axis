@@ -118,6 +118,7 @@ def pipeline_endpoint():
         
         return jsonify({
             "status": "success",
+            "geom": geom_data,
             "model": model_data,
             "materials": recommendations,
             "explanations": explanations

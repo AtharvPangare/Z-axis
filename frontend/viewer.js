@@ -72,6 +72,27 @@ const resetCamBtn = document.getElementById('reset-cam');
 const canvas2d = document.getElementById('canvas-2d');
 const ctx2d = canvas2d ? canvas2d.getContext('2d') : null;
 
+const exportBtn = document.getElementById('export-pdf');
+if (exportBtn) {
+    exportBtn.addEventListener('click', () => {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        doc.setFontSize(18);
+        doc.text("Z-Axis Structural Material Report", 14, 22);
+        
+        // Grab table element directly to AutoTable
+        doc.autoTable({
+            html: 'table',
+            startY: 30,
+            theme: 'striped',
+            headStyles: { fillColor: [6, 182, 212] },
+            styles: { fontSize: 10 }
+        });
+        
+        doc.save('Z-Axis_Materials_Report.pdf');
+    });
+}
+
 let is2DView = true;
 
 if (toggleViewBtn) {
@@ -87,9 +108,105 @@ if (toggleViewBtn) {
             container3D.classList.remove('hidden');
             resetCamBtn.classList.remove('hidden');
             toggleViewBtn.textContent = 'Switch to 2D';
+            // Force WebGL to grab new dynamic dimensions now that it's unhidden
+            window.dispatchEvent(new Event('resize'));
         }
     });
 }
+
+let globalImg2D = null;
+let globalParsedGeom2D = null;
+
+function draw2DView() {
+    if (!globalImg2D || !ctx2d) return;
+    
+    const containerW = container2D.clientWidth || 800;
+    const containerH = container2D.clientHeight || 500;
+    canvas2d.width = containerW;
+    canvas2d.height = containerH;
+    
+    const scale = Math.min(containerW / globalImg2D.width, containerH / globalImg2D.height) * 0.9;
+    const drawW = globalImg2D.width * scale;
+    const drawH = globalImg2D.height * scale;
+    const dx = (containerW - drawW) / 2;
+    const dy = (containerH - drawH) / 2;
+    
+    ctx2d.clearRect(0, 0, containerW, containerH);
+    
+    const showImage = document.getElementById('cb-image')?.checked !== false;
+    const showWalls = document.getElementById('cb-walls')?.checked !== false;
+    const showRooms = document.getElementById('cb-rooms')?.checked !== false;
+    const showOpenings = document.getElementById('cb-openings')?.checked !== false;
+
+    if (showImage) {
+        ctx2d.globalAlpha = 1.0;
+        ctx2d.drawImage(globalImg2D, dx, dy, drawW, drawH);
+    } else {
+        ctx2d.fillStyle = '#ffffff';
+        ctx2d.fillRect(0, 0, containerW, containerH);
+    }
+
+    if (globalParsedGeom2D) {
+        ctx2d.lineWidth = 2;
+        const scaleX = drawW / globalImg2D.width;
+        const scaleY = drawH / globalImg2D.height;
+        
+        if (showRooms && globalParsedGeom2D.rooms) {
+            globalParsedGeom2D.rooms.forEach(r => {
+                if (r.polygon_points && r.polygon_points.length > 0) {
+                    ctx2d.beginPath();
+                    r.polygon_points.forEach((p, idx) => {
+                        const px = dx + p[0] * scaleX;
+                        const py = dy + p[1] * scaleY;
+                        if (idx === 0) ctx2d.moveTo(px, py);
+                        else ctx2d.lineTo(px, py);
+                    });
+                    ctx2d.closePath();
+                    ctx2d.fillStyle = "rgba(139, 92, 246, 0.15)";
+                    ctx2d.fill();
+                    ctx2d.strokeStyle = "#8b5cf6";
+                    ctx2d.stroke();
+                }
+            });
+        }
+        
+        if (showWalls && globalParsedGeom2D.walls) {
+            globalParsedGeom2D.walls.forEach(w => {
+                ctx2d.beginPath();
+                ctx2d.moveTo(dx + w.x1 * scaleX, dy + w.y1 * scaleY);
+                ctx2d.lineTo(dx + w.x2 * scaleX, dy + w.y2 * scaleY);
+                const classification = w.classification || w.type;
+                ctx2d.strokeStyle = (classification === "LOAD_BEARING") ? "#ef4444" : "#10b981";
+                ctx2d.stroke();
+            });
+        }
+
+        if (showOpenings && globalParsedGeom2D.openings) {
+            globalParsedGeom2D.openings.forEach(op => {
+                const px = dx + op.x * scaleX;
+                const py = dy + op.y * scaleY;
+                if (op.type === "Door") {
+                    ctx2d.beginPath();
+                    ctx2d.arc(px, py, (op.radius_px * scaleX) || 15, 0, Math.PI * 2);
+                    ctx2d.strokeStyle = "#f59e0b";
+                    ctx2d.setLineDash([4, 2]);
+                    ctx2d.stroke();
+                    ctx2d.setLineDash([]);
+                } else if (op.type === "Window") {
+                    ctx2d.fillStyle = "rgba(59, 130, 246, 0.6)";
+                    ctx2d.beginPath();
+                    ctx2d.arc(px, py, ((op.span_px * scaleX) / 2) || 12, 0, Math.PI * 2);
+                    ctx2d.fill();
+                }
+            });
+        }
+    }
+}
+
+['cb-image', 'cb-walls', 'cb-rooms', 'cb-openings'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', draw2DView);
+});
 
 
 // Mock Drag and Drop
@@ -119,160 +236,107 @@ fileUpload.addEventListener('change', (e) => {
 
 // Start Pipeline Simulation
 async function startPipeline(file) {
-    // Hide Upload
     uploadContainer.classList.add('hidden');
-    // Show Loading
     loadingState.classList.remove('hidden');
 
-    let parsedGeom = null;
+    let pipelineRes = null;
     if (file) {
         const formData = new FormData();
         formData.append('file', file);
         try {
-            const res = await fetch('http://127.0.0.1:5000/parse', { method: 'POST', body: formData });
-            parsedGeom = await res.json();
-        } catch(e) { console.error("Parse failed", e); }
+            const res = await fetch('http://127.0.0.1:5000/pipeline', { method: 'POST', body: formData });
+            pipelineRes = await res.json();
+            if (pipelineRes.status !== "success") throw new Error(pipelineRes.message || "Pipeline error");
+        } catch(e) { 
+            console.error("Pipeline failed", e);
+            alert("Error running the intelligence pipeline! Check backend console.");
+            loadingState.classList.add('hidden');
+            return;
+        }
     }
 
-    // Simulate API Call delay 
-    setTimeout(() => {
-        loadingState.classList.add('hidden');
-        resultsSection.classList.remove('hidden');
-        resultsSection.classList.add('flex');
-        
-        // Show 2D View by Default
-        is2DView = true;
-        container3D.classList.add('hidden');
-        resetCamBtn.classList.add('hidden');
-        container2D.classList.remove('hidden');
-        if (toggleViewBtn) {
-            toggleViewBtn.textContent = 'Switch to 3D';
-            toggleViewBtn.classList.remove('hidden');
-        }
+    loadingState.classList.add('hidden');
+    resultsSection.classList.remove('hidden');
+    resultsSection.classList.add('flex');
+    
+    // Show 2D View by Default
+    is2DView = true;
+    container3D.classList.add('hidden');
+    resetCamBtn.classList.add('hidden');
+    container2D.classList.remove('hidden');
+    if (toggleViewBtn) {
+        toggleViewBtn.textContent = 'Switch to 3D';
+        toggleViewBtn.classList.remove('hidden');
+    }
+    
+    const exportBtn = document.getElementById('export-pdf');
+    if (exportBtn) exportBtn.classList.remove('hidden');
+    exportBtn.classList.add('flex');
 
-        // Render the 2D uploaded photo and detections
-        if (file && ctx2d) {
-            const reader = new FileReader();
-            reader.onload = e => {
-                const img = new Image();
-                img.onload = () => {
-                    const containerW = container2D.clientWidth || 800;
-                    const containerH = container2D.clientHeight || 500;
-                    canvas2d.width = containerW;
-                    canvas2d.height = containerH;
-                    
-                    const scale = Math.min(containerW / img.width, containerH / img.height) * 0.9;
-                    const drawW = img.width * scale;
-                    const drawH = img.height * scale;
-                    const dx = (containerW - drawW) / 2;
-                    const dy = (containerH - drawH) / 2;
-                    
-                    ctx2d.clearRect(0, 0, containerW, containerH);
-                    ctx2d.drawImage(img, dx, dy, drawW, drawH);
-                    
-                    // Draw real OpenCV 2D detections
-                    if (parsedGeom) {
-                        ctx2d.lineWidth = 2;
-                        
-                        // Scale factors for the image based on its natural vs drawn size
-                        const scaleX = drawW / img.width;
-                        const scaleY = drawH / img.height;
-                        
-                        // Draw Rooms
-                        if (parsedGeom.rooms) {
-                            parsedGeom.rooms.forEach(r => {
-                                if (r.polygon_points && r.polygon_points.length > 0) {
-                                    ctx2d.beginPath();
-                                    r.polygon_points.forEach((p, idx) => {
-                                        const px = dx + p[0] * scaleX;
-                                        const py = dy + p[1] * scaleY;
-                                        if (idx === 0) ctx2d.moveTo(px, py);
-                                        else ctx2d.lineTo(px, py);
-                                    });
-                                    ctx2d.closePath();
-                                    ctx2d.fillStyle = "rgba(139, 92, 246, 0.15)";
-                                    ctx2d.fill();
-                                    ctx2d.strokeStyle = "#8b5cf6";
-                                    ctx2d.stroke();
-                                }
-                            });
-                        }
-                        
-                        // Draw Walls
-                        if (parsedGeom.walls) {
-                            parsedGeom.walls.forEach(w => {
-                                ctx2d.beginPath();
-                                ctx2d.moveTo(dx + w.x1 * scaleX, dy + w.y1 * scaleY);
-                                ctx2d.lineTo(dx + w.x2 * scaleX, dy + w.y2 * scaleY);
-                                const classification = w.classification || w.type;
-                                ctx2d.strokeStyle = (classification === "LOAD_BEARING") ? "#ef4444" : "#10b981";
-                                ctx2d.stroke();
-                            });
-                        }
-
-                        // Draw Openings (Doors/Windows) mapped properly relative to image
-                        if (parsedGeom.openings) {
-                            parsedGeom.openings.forEach(op => {
-                                const px = dx + op.x * scaleX;
-                                const py = dy + op.y * scaleY;
-                                if (op.type === "Door") {
-                                    ctx2d.beginPath();
-                                    ctx2d.arc(px, py, (op.radius_px * scaleX) || 15, 0, Math.PI * 2);
-                                    ctx2d.strokeStyle = "#f59e0b";
-                                    ctx2d.setLineDash([4, 2]);
-                                    ctx2d.stroke();
-                                    ctx2d.setLineDash([]);
-                                } else if (op.type === "Window") {
-                                    ctx2d.fillStyle = "rgba(59, 130, 246, 0.6)";
-                                    ctx2d.beginPath();
-                                    ctx2d.arc(px, py, ((op.span_px * scaleX) / 2) || 12, 0, Math.PI * 2);
-                                    ctx2d.fill();
-                                }
-                            });
-                        }
-                    }
-                };
-                img.src = e.target.result;
+    // Render the 2D uploaded photo and detections
+    if (file && ctx2d && pipelineRes) {
+        globalParsedGeom2D = pipelineRes.geom;
+        const reader = new FileReader();
+        reader.onload = e => {
+            const img = new Image();
+            img.onload = () => {
+                globalImg2D = img;
+                draw2DView();
             };
-            reader.readAsDataURL(file);
-        }
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+    
+    if (pipelineRes && pipelineRes.model) {
+        // Initialize Three.js View with the REAL architectural model
+        initThreeJS(pipelineRes.model.walls);
         
-        // Mock Response Data
-        const mockPipelineData = getMockData();
-        
-        // Initialize Three.js View
-        initThreeJS(mockPipelineData.walls);
-        
-        // Populate Table and Cards
-        populateResults(mockPipelineData.walls);
-        
-        // Trigger feather icons to re-render in new cards
-        feather.replace();
-
-    }, 3000); // 3 seconds fake loading to simulate OpenCV -> ThreeJS -> LLM
-}
-
-// Mock Data Generator representing backend payload
-function getMockData() {
-    return {
-        walls: [
-            { id: "W1", x: -4, y: 1.5, z: -5, w: 8, h: 3, d: 0.4, type: "load-bearing", material: "Reinforced Concrete", cost: "$45/sqft", strength: "95/100", explanation: "Calculated primary vertical load path transferring roof stress directly to the foundation slab. RC specified to meet shear strength thresholds." },
-            { id: "W2", x: 4, y: 1.5, z: 0, w: 0.4, h: 3, d: 10, type: "load-bearing", material: "Steel Studs (Heavy Gauge)", cost: "$38/sqft", strength: "88/100", explanation: "Exterior lateral wall stabilizing wind loads. Heavy gauge steel offers high tensile strength without adding detrimental dead weight on edge footings." },
-            { id: "W3", x: -4, y: 1.5, z: 5, w: 8, h: 3, d: 0.4, type: "load-bearing", material: "Reinforced Concrete", cost: "$45/sqft", strength: "95/100", explanation: "Rear load-bearing envelope. Requires matched stiffness with front facade (W1) to prevent torsional displacement during dynamic loading." },
-            { id: "W4", x: -1, y: 1.5, z: 0, w: 0.2, h: 3, d: 6, type: "partition", material: "Timber Studs + Drywall", cost: "$12/sqft", strength: "40/100", explanation: "Interior space division. Carries no axial loads above self-weight. Optimized for cost-effectiveness and rapid installation speed." },
-            { id: "W5", x: 2, y: 1.5, z: 3, w: 4, h: 3, d: 0.2, type: "partition", material: "Aerated Concrete Blocks", cost: "$18/sqft", strength: "55/100", explanation: "Secondary partition enclosing utilities. Provides excellent fire resistance and acoustic insulation while remaining cost-viable." }
-        ]
-    };
+        // Populate Table and Cards dynamically from the tradeoff_engine outputs
+        const wallsWithExplanations = pipelineRes.materials.map((m, idx) => ({
+            id: m.element_id,
+            type: m.type === 'LOAD_BEARING' ? 'load-bearing' : 'partition',
+            material: m.materials[0].name,
+            cost: m.materials[0].cost,
+            strength: m.materials[0].strength,
+            explanation: pipelineRes.explanations[idx] || "Calculated primary internal structural component."
+        }));
+        populateResults(wallsWithExplanations);
+    }
+    
+    feather.replace();
 }
 
 // --- Three.js Implementation --- //
-let scene, camera, renderer, controls;
+let scene, camera, renderer, controls, gui;
 
 function initThreeJS(walls) {
     const container = document.getElementById('canvas-container');
     
     // Clear old canvases if any
     container.innerHTML = '';
+    
+    if (gui) { gui.destroy(); }
+    gui = new dat.GUI({ autoPlace: false });
+    gui.domElement.style.position = 'absolute';
+    gui.domElement.style.top = '10px';
+    gui.domElement.style.left = '10px';
+    container.appendChild(gui.domElement);
+
+    const guiParams = { showLoadBearing: true, showPartitions: true };
+    const wallsFolder = gui.addFolder('Wall Visibility');
+    
+    wallsFolder.add(guiParams, 'showLoadBearing').name('Load Bearing').onChange(v => {
+        scene.traverse((child) => {
+            if (child.isMesh && child.userData.type === 'load-bearing') child.visible = v;
+        });
+    });
+    wallsFolder.add(guiParams, 'showPartitions').name('Partitions').onChange(v => {
+        scene.traverse((child) => {
+            if (child.isMesh && child.userData.type === 'partition') child.visible = v;
+        });
+    });
+    wallsFolder.open();
 
     // Scene
     scene = new THREE.Scene();
@@ -316,12 +380,41 @@ function initThreeJS(walls) {
     plane.receiveShadow = true;
     scene.add(plane);
 
-    // Build Walls
+    // Build Extruded CSG Walls
     walls.forEach(w => {
-        // Red = Load bearing, Grey = Partition
-        const color = w.type === 'load-bearing' ? 0xef4444 : 0x9ca3af;
+        const color = (w.type === 'LOAD_BEARING') ? 0xef4444 : 0x9ca3af;
+        const dx = w.x2 - w.x1;
+        const dz = w.z2 - w.z1;
+        const length = Math.hypot(dx, dz);
         
-        const geometry = new THREE.BoxGeometry(w.w, w.h, w.d);
+        const shape = new THREE.Shape();
+        shape.moveTo(0, 0);
+        shape.lineTo(length, 0);
+        shape.lineTo(length, w.height);
+        shape.lineTo(0, w.height);
+        shape.lineTo(0, 0);
+        
+        // Punch out Windows!
+        if (w.windows && w.windows.length > 0) {
+            w.windows.forEach(win => {
+                // Ensure window doesn't bleed outside the wall length parameter
+                const safeU = Math.max(win.w/2, Math.min(length - win.w/2, win.u));
+                const hole = new THREE.Path();
+                hole.moveTo(safeU - win.w/2, win.elevation);
+                hole.lineTo(safeU + win.w/2, win.elevation);
+                hole.lineTo(safeU + win.w/2, win.elevation + win.h);
+                hole.lineTo(safeU - win.w/2, win.elevation + win.h);
+                hole.moveTo(safeU - win.w/2, win.elevation);
+                shape.holes.push(hole);
+            });
+        }
+        
+        const extrudeSettings = { depth: w.thickness, bevelEnabled: false };
+        const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+        
+        // Center for origin rotation mapping
+        geometry.translate(-length / 2, 0, -w.thickness / 2);
+        
         const material = new THREE.MeshStandardMaterial({ 
             color: color,
             roughness: 0.7,
@@ -329,11 +422,15 @@ function initThreeJS(walls) {
         });
         
         const mesh = new THREE.Mesh(geometry, material);
-        mesh.position.set(w.x, w.y, w.z);
+        mesh.position.set((w.x1 + w.x2) / 2, 0, (w.z1 + w.z2) / 2);
+        
+        // Face the extrusion along the wall vector
+        mesh.rotation.y = -Math.atan2(dz, dx);
+        
         mesh.castShadow = true;
         mesh.receiveShadow = true;
+        mesh.userData = { type: w.type === 'LOAD_BEARING' ? 'load-bearing' : 'partition' };
         
-        // Add subtle edge geometry for clarity
         const edges = new THREE.EdgesGeometry(geometry);
         const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 }));
         mesh.add(line);

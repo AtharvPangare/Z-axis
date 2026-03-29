@@ -1,4 +1,5 @@
 import os
+import json
 import anthropic
 
 def generate_explanation(element, materials):
@@ -18,6 +19,9 @@ def generate_explanation(element, materials):
     - Why the top material scored highest
     - What the tradeoff is vs the cheaper or weaker option
     Be specific. Never say a material is "good" without saying why.
+    
+    CRITICAL: You MUST respond ONLY with a raw JSON object and no other text or explanation. Use this exact format:
+    { "explanation": "<your detailed explanation here>" }
     """
 
     materials_text = "\n".join([f"    {i+1}. {m['name']} — score: {m['score']}" for i, m in enumerate(materials)])
@@ -41,7 +45,17 @@ def generate_explanation(element, materials):
                 {"role": "user", "content": user_prompt}
             ]
         )
-        return response.content[0].text
+        try:
+            parsed = json.loads(response.content[0].text)
+            return parsed.get("explanation", response.content[0].text)
+        except json.JSONDecodeError:
+            # Fallback if claude wraps in markdown
+            text = response.content[0].text.replace("```json", "").replace("```", "").strip()
+            try:
+                return json.loads(text).get("explanation", text)
+            except:
+                return text
+                
     except Exception as e:
         return f"Error generating explanation via Claude API: {str(e)}"
 

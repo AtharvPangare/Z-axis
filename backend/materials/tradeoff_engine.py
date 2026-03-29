@@ -7,7 +7,7 @@ def load_materials():
     with open(DB_PATH, 'r') as f:
         return json.load(f)
 
-def rank_materials(element_id, element_type, span_metres=0.0):
+def rank_materials(element_id, element_type, span_metres=0.0, room_context="general"):
     materials = load_materials()
     ranked = []
     
@@ -18,6 +18,12 @@ def rank_materials(element_id, element_type, span_metres=0.0):
         s = mat['strength_score']
         d = mat['durability_score']
         
+        # Per-room weighting adjustments
+        if room_context == "wet-room":
+            d = d * 1.5  # High durability needed for moisture
+        elif room_context == "acoustic":
+            s = s * 1.2  # Higher density materials often mean higher structural strength metrics
+            
         # Long spans or columns logic
         if is_long_span or element_type == 'COLUMN':
             if mat['name'] not in ['Steel Frame', 'RCC']:

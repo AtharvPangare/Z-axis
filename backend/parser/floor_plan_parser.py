@@ -15,11 +15,32 @@ def parse_floor_plan(image_path):
     # Binary thresholding
     _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
     
-    # Edges
-    edges = cv2.Canny(thresh, 50, 150, apertureSize=3)
+    # TEXT & NOISE FILTER: Erase "words as walls"
+    num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(thresh, connectivity=8)
+    for i in range(1, num_labels):
+        area = stats[i, cv2.CC_STAT_AREA]
+        w_b = stats[i, cv2.CC_STAT_WIDTH]
+        h_b = stats[i, cv2.CC_STAT_HEIGHT]
+        # Text characters are typically small and compact. Delete them.
+        if area < 500 or (w_b < 40 and h_b < 40):
+            thresh[labels == i] = 0
+            
+    # Morphological Skeleton for cleaner centerlines
+    skeleton = np.zeros(thresh.shape, np.uint8)
+    element = cv2.getStructuringElement(cv2.MORPH_CROSS, (3,3))
+    temp_img = thresh.copy()
     
-    # Line detection (HoughLinesP)
-    lines = cv2.HoughLinesP(edges, 1, np.pi/180, threshold=50, minLineLength=50, maxLineGap=10)
+    while True:
+        eroded = cv2.erode(temp_img, element)
+        temp = cv2.dilate(eroded, element)
+        temp = cv2.subtract(temp_img, temp)
+        skeleton = cv2.bitwise_or(skeleton, temp)
+        temp_img = eroded.copy()
+        if cv2.countNonZero(temp_img) == 0:
+            break
+            
+    # Line detection (HoughLinesP) using skeleton instead of Canny
+    lines = cv2.HoughLinesP(skeleton, 1, np.pi/180, threshold=40, minLineLength=40, maxLineGap=20)
     
     walls = []
     if lines is not None:
@@ -42,16 +63,27 @@ def parse_floor_plan(image_path):
                     "length_px": float(length_px)
                 })
                 
-    # Detect approximate rooms via contours
-    contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    # Detect structured rooms perfectly via inverse voids
+    # 1. Close the wall gaps (doors) with a massive structural block
+    close_kernel = np.ones((25, 25), np.uint8)
+    closed_walls = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, close_kernel)
+    
+    # 2. Invert so rooms (empty space) become massive white blobs
+    rooms_mask = cv2.bitwise_not(closed_walls)
+    
+    # 3. Find the blobs
+    contours, _ = cv2.findContours(rooms_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
     rooms = []
     r_idx = 0
+    img_area = img.shape[0] * img.shape[1]
+    
     for c in contours:
-        area = cv2.contourArea(c)
-        if area > 1000: # filter noise
-            x,y,w,h = cv2.boundingRect(c)
-            # snap
+        x,y,w,h = cv2.boundingRect(c)
+        area = w * h
+        # Only preserve blobs that represent 2% to 45% of interior space (filters backgrounds + noise)
+        if 0.02 * img_area < area < 0.45 * img_area:
+            # snap cleanly
             x, y = round(x/10.0)*10, round(y/10.0)*10
             w, h = round(w/10.0)*10, round(h/10.0)*10
             
@@ -80,8 +112,10 @@ def parse_floor_plan(image_path):
                 "radius_px": int(i[2])
             })
             
-    # Detect Windows (Thin Rectangles from contours)
-    for c in contours:
+
+    # Detect Windows (Thin Rectangles from original thresh walls)
+    window_contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    for c in window_contours:
         area = cv2.contourArea(c)
         if 50 < area < 800:
             x,y,w,h = cv2.boundingRect(c)
