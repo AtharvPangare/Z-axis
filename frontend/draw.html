@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Z-Axis — Draw Studio</title>
+  <meta name="description" content="Design your structural layout from scratch with our interactive drafting tools."/>
+  
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- CSS Links -->
+  <link rel="stylesheet" href="draw-style.css">
+  
+  <!-- Font Awesome / Feather Icons -->
+  <script src="https://unpkg.com/feather-icons"></script>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav id="navbar">
+    <div class="nav-inner">
+      <div class="nav-brand">
+        <a href="index.html" class="wordmark">Z-Axis <span class="accent-text">Draw</span></a>
+      </div>
+      <div class="nav-center">
+        <button class="mode-tab active" id="tab-draw" onclick="switchMode('draw')">
+          <i data-feather="edit-3" class="w-4 h-4"></i> Draw Layout
+        </button>
+        <button class="mode-tab" id="tab-3d" onclick="switchMode('3d')" disabled title="Draw something first">
+          <i data-feather="box" class="w-4 h-4"></i> 3D View
+        </button>
+        <button class="mode-tab" id="tab-report" onclick="switchMode('report')" disabled title="Draw something first">
+          <i data-feather="file-text" class="w-4 h-4"></i> Materials
+        </button>
+      </div>
+      <div class="nav-right">
+        <button class="btn-ghost-nav" id="api-key-btn" onclick="openApiModal()">
+          <i data-feather="key" class="w-4 h-4"></i> API Key
+        </button>
+        <button class="btn-analyze" id="main-analyze-btn" onclick="analyzeFloorPlan()">
+          <i data-feather="play" class="w-4 h-4"></i> Generate 3D
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- MAIN APP AREA -->
+  <main id="app-root">
+
+    <!-- ── DRAW MODE ── -->
+    <div id="panel-draw" class="app-panel active">
+      <div class="panel-sidebar">
+        <div class="sidebar-section">
+          <div class="sidebar-title">Tools</div>
+          <button class="tool-btn active" id="tool-wall" onclick="setTool('wall')" title="Draw Wall">
+            <i data-feather="square" class="w-5 h-5"></i> Wall
+          </button>
+          <button class="tool-btn" id="tool-window" onclick="setTool('window')" title="Place Window">
+            <i data-feather="maximize" class="w-5 h-5"></i> Window
+          </button>
+          <button class="tool-btn" id="tool-door" onclick="setTool('door')" title="Place Door">
+            <i data-feather="log-in" class="w-5 h-5"></i> Door
+          </button>
+          <button class="tool-btn" id="tool-select" onclick="setTool('select')" title="Select">
+            <i data-feather="mouse-pointer" class="w-5 h-5"></i> Select
+          </button>
+        </div>
+        
+        <div class="sidebar-section">
+          <div class="sidebar-title">Actions</div>
+          <button class="action-btn" onclick="undoLast()">
+            <i data-feather="rotate-ccw" class="w-4 h-4"></i> Undo
+          </button>
+          <button class="action-btn" onclick="loadDemo()">
+            <i data-feather="copy" class="w-4 h-4"></i> Load Demo
+          </button>
+          <button class="action-btn danger" onclick="clearCanvas()">
+            <i data-feather="trash-2" class="w-4 h-4"></i> Clear
+          </button>
+        </div>
+        
+        <div class="sidebar-section">
+          <div class="sidebar-title">Stats</div>
+          <div class="mini-stat"><span class="stat-dot wall-dot"></span>Walls <strong id="d-walls">0</strong></div>
+          <div class="mini-stat"><span class="stat-dot win-dot"></span>Windows <strong id="d-windows">0</strong></div>
+          <div class="mini-stat"><span class="stat-dot door-dot"></span>Doors <strong id="d-doors">0</strong></div>
+        </div>
+        
+        <div class="sidebar-section">
+          <div class="sidebar-title">Scale</div>
+          <label class="scale-label">1 grid unit =</label>
+          <div class="scale-input-row">
+            <input type="number" id="scale-meters" value="1" min="0.1" step="0.1" class="scale-inp"/>
+            <span class="text-xs font-bold text-brown-sec">M</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="canvas-area">
+        <canvas id="floor-canvas"></canvas>
+        <div class="canvas-hint" id="canvas-hint">Click on grid to start drawing a wall segment.</div>
+      </div>
+    </div>
+
+    <!-- ── 3D VIEW MODE ── -->
+    <div id="panel-3d" class="app-panel">
+      <div class="viewer-3d-layout">
+        <div class="canvas-3d-wrap">
+          <canvas id="three-canvas"></canvas>
+          <div class="viewer-toolbar-3d">
+            <button class="v3btn" id="btn-autorotate" onclick="toggleAutoRotate()" title="Auto-rotate">
+              <i data-feather="refresh-cw" class="w-5 h-5"></i>
+            </button>
+            <button class="v3btn" id="btn-wireframe" onclick="toggleWireframe()" title="Wireframe">
+              <i data-feather="layers" class="w-5 h-5"></i>
+            </button>
+            <button class="v3btn" onclick="resetCamera()" title="Reset Camera">
+              <i data-feather="crosshair" class="w-5 h-5"></i>
+            </button>
+          </div>
+        </div>
+        <div class="sidebar-3d">
+          <div class="s3d-card">
+            <div class="s3d-card-title">Structural Elements</div>
+            <div class="s3d-row">Walls <strong id="s3-walls">0</strong></div>
+            <div class="s3d-row">Windows <strong id="s3-windows">0</strong></div>
+            <div class="s3d-row">Doors <strong id="s3-doors">0</strong></div>
+          </div>
+          <button class="btn-primary-full" onclick="switchMode('report')">Generate Material Report →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── REPORT MODE ── -->
+    <div id="panel-report" class="app-panel">
+      <div class="report-container">
+        <div class="report-header-row">
+          <div>
+            <div class="report-tag">Precision Estimate</div>
+            <h2 class="report-h2">Bill of Materials</h2>
+          </div>
+          <div class="report-actions-top">
+            <div class="report-chips">
+              <span class="rchip" id="rc-area">— Area</span>
+              <span class="rchip" id="rc-walls">— Walls</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="material-grid" id="mat-grid">
+           <!-- Populated by JS -->
+        </div>
+
+        <div class="ai-block">
+          <div class="gemini-tag">
+            <i data-feather="cpu" class="w-6 h-6"></i> AI Construction Insight
+          </div>
+          <div class="ai-narrative" id="ai-text">
+             Configure API Key to generate AI insights for this layout.
+          </div>
+        </div>
+        
+        <div class="flex justify-center">
+            <button class="btn-analyze" onclick="switchMode('draw')">Modify Layout</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- PROCESSING OVERLAY -->
+  <div id="processing-overlay" class="processing-overlay hidden">
+    <div class="proc-card">
+      <div class="proc-title">Analyzing Structure</div>
+      <div class="proc-stages">
+        <div class="pstage" id="ps-parse"><div class="ps-dot"></div><div class="ps-name">Parsing Design</div></div>
+        <div class="pstage" id="ps-build"><div class="ps-dot"></div><div class="ps-name">Building 3D Mesh</div></div>
+        <div class="pstage" id="ps-report"><div class="ps-dot"></div><div class="ps-name">Material Intelligence</div></div>
+      </div>
+      <div class="proc-bar-wrap"><div class="proc-bar" id="proc-bar" style="width:0%"></div></div>
+      <p id="proc-build-sub" class="text-xs text-center text-brown-sec font-bold uppercase tracking-wider">Please wait...</p>
+      <p id="ps-report-sub" class="hidden"></p>
+    </div>
+  </div>
+
+  <!-- API KEY MODAL -->
+  <div id="api-modal" class="modal-bg hidden">
+    <div class="modal-box">
+      <div class="modal-hdr">
+        <span class="modal-ttl">Gemini AI Configuration</span>
+        <button onclick="closeApiModal()" style="background:none; border:none; cursor:pointer;"><i data-feather="x"></i></button>
+      </div>
+      <p class="text-sm text-brown-sec mb-6">Enter your Gemini API Key to enable automated material quality reports and structural insights.</p>
+      <input type="password" id="api-inp" class="modal-inp" placeholder="Enter API Key..."/>
+      <div class="flex justify-end gap-4 mt-8">
+        <button class="btn-ghost-nav" onclick="closeApiModal()">Cancel</button>
+        <button class="btn-analyze" onclick="saveKey()">Save Key</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast" class="fixed bottom-8 right-8 bg-black-soft text-white px-6 py-3 rounded-xl shadow-elevate transform translate-y-20 transition-all duration-300 opacity-0 z-50"></div>
+
+  <!-- Three.js from CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="draw-app.js"></script>
+  <script>feather.replace();</script>
+</body>
+</html>
