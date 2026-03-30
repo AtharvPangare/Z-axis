@@ -45,7 +45,7 @@ def draw_annotated_plan(image_path, walls, rooms, openings):
             cv2.rectangle(img, (ct[0]-15, ct[1]-5), (ct[0]+15, ct[1]+5), (255, 100, 0), -1)
     return img
 
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 app = Flask(__name__)
 # Enable CORS for frontend integration and allow credentials for auth cookies
 CORS(app, supports_credentials=True)

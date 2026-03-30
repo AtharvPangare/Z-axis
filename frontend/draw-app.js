@@ -518,7 +518,8 @@ function generateMaterialReportSync(result) {
   document.getElementById('rc-walls').textContent = `1:1 Scale Refined Model`;
   
   const explanations = result.explanations || [];
-  document.getElementById('ai-text').innerText = explanations.join('\n\n') || "Structural analysis complete.";
+  const explanationTexts = explanations.map(e => (e.explanation || "Calculated component.")).filter(Boolean);
+  document.getElementById('ai-text').innerText = explanationTexts.join('\n\n') || "Structural analysis complete.";
 }
 
 async function callGemini(data) {

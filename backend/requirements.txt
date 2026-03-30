@@ -3,7 +3,7 @@ Flask-Cors
 opencv-python
 numpy
 shapely
-anthropic
+openai
 python-dotenv
 networkx
 pymongo

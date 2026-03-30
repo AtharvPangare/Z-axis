@@ -440,7 +440,7 @@ async function startPipeline(file) {
             material: m.materials[0].name,
             cost: m.materials[0].cost,
             strength: m.materials[0].strength,
-            explanation: pipelineRes.explanations[idx] || "Calculated primary internal structural component."
+            explanation: (pipelineRes.explanations[idx] && pipelineRes.explanations[idx].explanation) ? pipelineRes.explanations[idx].explanation : "Calculated primary internal structural component."
         }));
         populateResults(wallsWithExplanations);
     }
