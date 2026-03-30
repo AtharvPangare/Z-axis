@@ -305,33 +305,52 @@ function loadDemo() {
    MAIN ANALYSIS PIPELINE
 ═══════════════════════════════════════════ */
 async function analyzeFloorPlan() {
-  console.log("Analyze clicked! Elements:", state.walls.length);
   if (state.walls.length === 0) {
     showToast('Add some structural elements first.', 3500);
     return;
   }
   
+  showProcessing();
   try {
-    // 1. Process canvas data
-    const data = analyzeFromCanvas();
-    state.analysisData = data;
+    const scale = parseFloat(document.getElementById('scale-meters').value) || 1;
+    const payload = {
+      segments: state.walls,
+      scale_px_per_m: state.snapGrid / scale
+    };
+
+    setStage('ps-parse', 'ps-parse-sub', 'Sending sketch to AI Engine...', 30);
     
-    // 2. IMPORTANT: Switch mode first so the 3D container is visible and has dimensions
+    const response = await fetch(`${BACKEND}/pipeline-draw`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    
+    const result = await response.json();
+    if (result.status !== 'success') throw new Error(result.message || 'Backend error');
+
+    state.analysisData = {
+      ...result.geom,
+      materials: result.materials,
+      explanations: result.explanations
+    };
+    
+    setStage('ps-detect', 'ps-detect-sub', 'Analyzing structural integrity...', 70);
+    
     enableTabs();
     switchMode('3d');
     
-    // 3. Build 3D Scene
     setTimeout(() => {
-      console.log("Building 3D Scene...");
-      buildThreeScene(data);
+      buildThreeSceneWithModel(result.model);
+      hideProcessing();
       showToast('3D Model Generated! 🏗️', 2000);
-    }, 100);
+    }, 500);
     
-    // 4. Run detailed material analysis in background
-    generateMaterialReport(data);
+    generateMaterialReportSync(result);
     
   } catch (err) {
     console.error("Critical error in analyzeFloorPlan:", err);
+    hideProcessing();
     showToast('Analysis Error: ' + err.message, 5000);
   }
 }
@@ -359,89 +378,101 @@ let autoRotate = true, wireframe = false;
 const meshes = [];
 let threeControls;
 
-function buildThreeScene(data) {
+function buildThreeSceneWithModel(modelData) {
   const container = document.getElementById('three-canvas');
   const W = container.parentElement.clientWidth;
   const H = container.parentElement.clientHeight;
 
   if (threeRenderer) {
-    threeScene.traverse(obj => { if (obj.geometry) obj.geometry.dispose(); });
+    threeScene.traverse(obj => { 
+      if (obj.geometry) obj.geometry.dispose(); 
+      if (obj.material) {
+          if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
+          else obj.material.dispose();
+      }
+    });
     threeRenderer.dispose();
   }
 
   threeScene = new THREE.Scene();
-  threeScene.background = new THREE.Color(0xFAF7F2);
-  threeScene.fog = new THREE.FogExp2(0xF5F1EB, 0.015);
+  threeScene.background = new THREE.Color(0xF1F5F9); // slate-100 theme
+  
+  threeCamera = new THREE.PerspectiveCamera(45, W / H, 0.1, 1000);
+  threeCamera.position.set(12, 16, 12);
 
-  threeCamera = new THREE.PerspectiveCamera(50, W / H, 0.1, 500);
-  threeCamera.position.set(12, 16, 24);
-  threeCamera.lookAt(0, 0, 0);
-
-  threeRenderer = new THREE.WebGLRenderer({ canvas: container, antialias: true });
+  threeRenderer = new THREE.WebGLRenderer({ canvas: container, antialias: true, preserveDrawingBuffer: true });
   threeRenderer.setSize(W, H);
-  threeRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  threeRenderer.setPixelRatio(window.devicePixelRatio);
   threeRenderer.shadowMap.enabled = true;
-  threeRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   threeControls = new THREE.OrbitControls(threeCamera, threeRenderer.domElement);
   threeControls.enableDamping = true;
   threeControls.dampingFactor = 0.05;
-  threeControls.autoRotate = autoRotate;
 
   // Lighting
-  threeScene.add(new THREE.AmbientLight(0xffffff, 0.5));
-  
-  const hemiLight = new THREE.HemisphereLight(0xffffff, 0x8d8d8d, 0.4);
-  hemiLight.position.set(0, 50, 0);
-  threeScene.add(hemiLight);
-
+  threeScene.add(new THREE.AmbientLight(0xffffff, 0.7));
   const sun = new THREE.DirectionalLight(0xffffff, 0.8);
-  sun.position.set(20, 40, 20);
+  sun.position.set(10, 20, 10);
   sun.castShadow = true;
-  sun.shadow.mapSize.width = 1024;
-  sun.shadow.mapSize.height = 1024;
   threeScene.add(sun);
 
-  // Materials
-  const wallMat = new THREE.MeshStandardMaterial({ color: 0x8B6F47, roughness: 0.7 });
-  const windowMat = new THREE.MeshStandardMaterial({ color: 0x0891B2, transparent: true, opacity: 0.4 });
-  const doorMat = new THREE.MeshStandardMaterial({ color: 0xEA580C, roughness: 0.5 });
-  const floorMat = new THREE.MeshStandardMaterial({ color: 0xE8E1D9, roughness: 0.8 });
+  // Floor Grid
+  const grid = new THREE.GridHelper(30, 30, 0x06B6D4, 0xCBD5E1);
+  threeScene.add(grid);
 
-  const segs = data.segments || [];
-  const g = state.snapGrid;
-  const scale = parseFloat(document.getElementById('scale-meters').value) || 1;
-  const OFFSET_X = 15, OFFSET_Z = 10;
-
-  meshes.length = 0;
-  segs.forEach(seg => {
-    const sx = (seg.x1 / g) * scale - OFFSET_X;
-    const sz = (seg.y1 / g) * scale - OFFSET_Z;
-    const ex = (seg.x2 / g) * scale - OFFSET_X;
-    const ez = (seg.y2 / g) * scale - OFFSET_Z;
-    const len = Math.hypot(ex - sx, ez - sz);
-    if (len < 0.01) return;
-    const angle = Math.atan2(ez - sz, ex - sx);
-    const h = seg.type === 'wall' ? 3.1 : (seg.type === 'window' ? 1.0 : 2.5);
-    const thk = seg.type === 'wall' ? 0.35 : 0.2;
-    const geo = new THREE.BoxGeometry(len, h, thk);
-    const mat = seg.type === 'window' ? windowMat : (seg.type === 'door' ? doorMat : wallMat);
-    const mesh = new THREE.Mesh(geo, mat.clone());
-    mesh.position.set((sx + ex) / 2, h / 2, (sz + ez) / 2);
-    mesh.rotation.y = -angle;
+  // Walls
+  modelData.walls.forEach(w => {
+    const color = (w.type === 'LOAD_BEARING') ? 0xef4444 : 0x9ca3af;
+    const dx = w.x2 - w.x1;
+    const dz = w.z2 - w.z1;
+    const length = Math.hypot(dx, dz);
+    
+    // Shape with window holes
+    const shape = new THREE.Shape();
+    shape.moveTo(0, 0);
+    shape.lineTo(length, 0);
+    shape.lineTo(length, w.height);
+    shape.lineTo(0, w.height);
+    shape.lineTo(0, 0);
+    
+    if (w.windows && w.windows.length > 0) {
+      w.windows.forEach(win => {
+        const h = new THREE.Path();
+        h.moveTo(win.u - win.w/2, win.elevation);
+        h.lineTo(win.u + win.w/2, win.elevation);
+        h.lineTo(win.u + win.w/2, win.elevation + win.h);
+        h.lineTo(win.u - win.w/2, win.elevation + win.h);
+        h.closePath();
+        shape.holes.push(h);
+      });
+    }
+    
+    const geo = new THREE.ExtrudeGeometry(shape, { depth: w.thickness, bevelEnabled: false });
+    geo.translate(-length / 2, 0, -w.thickness / 2);
+    const mat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.6 });
+    const mesh = new THREE.Mesh(geo, mat);
+    
+    mesh.position.set((w.x1 + w.x2) / 2, 0, (w.z1 + w.z2) / 2);
+    mesh.rotation.y = -Math.atan2(dz, dx);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     threeScene.add(mesh);
-    meshes.push(mesh);
+    
+    // Edges
+    const edges = new THREE.EdgesGeometry(geo);
+    mesh.add(new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xffffff, opacity: 0.5, transparent: true })));
   });
 
-  const floorGeo = new THREE.PlaneGeometry(60, 60);
-  const floorMesh = new THREE.Mesh(floorGeo, floorMat);
-  floorMesh.rotation.x = -Math.PI / 2;
-  floorMesh.receiveShadow = true;
-  threeScene.add(floorMesh);
+  // Slab
+  if (modelData.slab) {
+    const s = modelData.slab;
+    const geo = new THREE.BoxGeometry(s.width, s.thickness, s.depth);
+    const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0xE2E8F0 }));
+    mesh.position.y = -s.thickness/2;
+    mesh.receiveShadow = true;
+    threeScene.add(mesh);
+  }
 
-  setupSimpleControls();
   animate3D();
 }
 
@@ -468,39 +499,26 @@ function resetCamera() { autoRotate = true; }
 /* ═══════════════════════════════════════════
    MATERIAL REPORT
 ═══════════════════════════════════════════ */
-async function generateMaterialReport(data) {
-  const report = [
-    { icon:'🧱', cat:'Masonry', name:'Concrete Blocks', qty: Math.ceil(data.totalWallLen * 12), unit:'blocks' },
-    { icon:'🏗️', cat:'Foundation', name:'Ready Mix M25', qty: Math.ceil(data.totalArea * 0.15), unit:'m³' },
-    { icon:'⚙️', cat:'Steel', name:'TMT Fe500', qty: Math.ceil(data.totalWallLen * 8), unit:'kg' },
-    { icon:'🪟', cat:'Glazing', name:'Toughened Glass', qty: data.windows, unit:'sets' },
-    { icon:'🚪', cat:'Joinery', name:'Solid Flash Doors', qty: data.doors, unit:'sets' }
-  ];
+function generateMaterialReportSync(result) {
   const grid = document.getElementById('mat-grid');
   grid.innerHTML = '';
-  report.forEach(m => {
+  
+  result.materials.forEach(m => {
+    const mainMat = m.materials[0];
     grid.innerHTML += `
       <div class="mat-card">
-        <div class="mat-icon">${m.icon}</div>
-        <div class="mat-name">${m.name}</div>
-        <div class="mat-qty">${m.qty}</div>
-        <div class="mat-unit">${m.unit}</div>
+        <div class="mat-icon">${m.type === 'LOAD_BEARING' ? '🏗️' : '🧱'}</div>
+        <div class="mat-name">${mainMat.name}</div>
+        <div class="mat-qty">${m.element_id}</div>
+        <div class="mat-unit">Score: ${mainMat.score}</div>
       </div>`;
   });
   
-  document.getElementById('rc-area').textContent = `${data.totalArea} m² Area`;
-  document.getElementById('rc-walls').textContent = `${data.walls} Walls`;
+  document.getElementById('rc-area').textContent = `${result.geom.walls.length} Structural Elements`;
+  document.getElementById('rc-walls').textContent = `1:1 Scale Refined Model`;
   
-  if (state.apiKey) {
-    try {
-      const narrative = await callGemini(data);
-      document.getElementById('ai-text').innerText = narrative;
-    } catch {
-      document.getElementById('ai-text').innerText = "AI summary unavailable.";
-    }
-  } else {
-    document.getElementById('ai-text').innerText = "No API key provided for AI analysis.";
-  }
+  const explanations = result.explanations || [];
+  document.getElementById('ai-text').innerText = explanations.join('\n\n') || "Structural analysis complete.";
 }
 
 async function callGemini(data) {
