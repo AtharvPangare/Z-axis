@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
 /* ═══════════════════════════════════════════
    BACKEND
 ═══════════════════════════════════════════ */
-const BACKEND = 'http://localhost:5001';
+const BACKEND = 'http://localhost:5000';
 
 async function checkBackendHealth() {
   try {
@@ -305,27 +305,34 @@ function loadDemo() {
    MAIN ANALYSIS PIPELINE
 ═══════════════════════════════════════════ */
 async function analyzeFloorPlan() {
+  console.log("Analyze clicked! Elements:", state.walls.length);
   if (state.walls.length === 0) {
     showToast('Add some structural elements first.', 3500);
     return;
   }
-  showProcessing();
+  
   try {
+    // 1. Process canvas data
     const data = analyzeFromCanvas();
     state.analysisData = data;
-    await setStage('ps-build', 'ps-build-sub', 'Generating 3D wireframe…', 75);
-    buildThreeScene(data);
-    await setStage('ps-report', 'ps-report-sub', 'AI Structural Insight…', 90);
-    await generateMaterialReport(data);
-    await setStage('ps-report', 'ps-report-sub', 'Done!', 100);
-    hideProcessing();
+    
+    // 2. IMPORTANT: Switch mode first so the 3D container is visible and has dimensions
     enableTabs();
     switchMode('3d');
-    showToast('Analysis complete! 🎉', 3000);
+    
+    // 3. Build 3D Scene
+    setTimeout(() => {
+      console.log("Building 3D Scene...");
+      buildThreeScene(data);
+      showToast('3D Model Generated! 🏗️', 2000);
+    }, 100);
+    
+    // 4. Run detailed material analysis in background
+    generateMaterialReport(data);
+    
   } catch (err) {
-    hideProcessing();
-    showToast('Error: ' + err.message, 5000);
-    console.error(err);
+    console.error("Critical error in analyzeFloorPlan:", err);
+    showToast('Analysis Error: ' + err.message, 5000);
   }
 }
 
@@ -350,6 +357,7 @@ function analyzeFromCanvas() {
 let threeRenderer, threeScene, threeCamera;
 let autoRotate = true, wireframe = false;
 const meshes = [];
+let threeControls;
 
 function buildThreeScene(data) {
   const container = document.getElementById('three-canvas');
@@ -373,19 +381,32 @@ function buildThreeScene(data) {
   threeRenderer.setSize(W, H);
   threeRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   threeRenderer.shadowMap.enabled = true;
+  threeRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+  threeControls = new THREE.OrbitControls(threeCamera, threeRenderer.domElement);
+  threeControls.enableDamping = true;
+  threeControls.dampingFactor = 0.05;
+  threeControls.autoRotate = autoRotate;
 
   // Lighting
-  threeScene.add(new THREE.AmbientLight(0xffffff, 0.6));
+  threeScene.add(new THREE.AmbientLight(0xffffff, 0.5));
+  
+  const hemiLight = new THREE.HemisphereLight(0xffffff, 0x8d8d8d, 0.4);
+  hemiLight.position.set(0, 50, 0);
+  threeScene.add(hemiLight);
+
   const sun = new THREE.DirectionalLight(0xffffff, 0.8);
-  sun.position.set(10, 20, 10);
+  sun.position.set(20, 40, 20);
   sun.castShadow = true;
+  sun.shadow.mapSize.width = 1024;
+  sun.shadow.mapSize.height = 1024;
   threeScene.add(sun);
 
   // Materials
   const wallMat = new THREE.MeshStandardMaterial({ color: 0x8B6F47, roughness: 0.7 });
   const windowMat = new THREE.MeshStandardMaterial({ color: 0x0891B2, transparent: true, opacity: 0.4 });
   const doorMat = new THREE.MeshStandardMaterial({ color: 0xEA580C, roughness: 0.5 });
-  const floorMat = new THREE.MeshStandardMaterial({ color: 0xE8E1D9 });
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0xE8E1D9, roughness: 0.8 });
 
   const segs = data.segments || [];
   const g = state.snapGrid;
@@ -401,8 +422,9 @@ function buildThreeScene(data) {
     const len = Math.hypot(ex - sx, ez - sz);
     if (len < 0.01) return;
     const angle = Math.atan2(ez - sz, ex - sx);
-    const h = seg.type === 'wall' ? 3.0 : (seg.type === 'window' ? 1.0 : 2.5);
-    const geo = new THREE.BoxGeometry(len, h, 0.3);
+    const h = seg.type === 'wall' ? 3.1 : (seg.type === 'window' ? 1.0 : 2.5);
+    const thk = seg.type === 'wall' ? 0.35 : 0.2;
+    const geo = new THREE.BoxGeometry(len, h, thk);
     const mat = seg.type === 'window' ? windowMat : (seg.type === 'door' ? doorMat : wallMat);
     const mesh = new THREE.Mesh(geo, mat.clone());
     mesh.position.set((sx + ex) / 2, h / 2, (sz + ez) / 2);
@@ -425,24 +447,11 @@ function buildThreeScene(data) {
 
 function animate3D() {
   requestAnimationFrame(animate3D);
-  if (autoRotate && threeCamera) {
-    const t = Date.now() * 0.0003;
-    threeCamera.position.x = Math.sin(t) * 24;
-    threeCamera.position.z = Math.cos(t) * 24;
-    threeCamera.lookAt(0, 2, 0);
+  if (threeControls) {
+    threeControls.autoRotate = autoRotate;
+    threeControls.update();
   }
   if (threeRenderer) threeRenderer.render(threeScene, threeCamera);
-}
-
-function setupSimpleControls() {
-  const cvs = document.getElementById('three-canvas');
-  let isDragging = false, lastX, lastY;
-  cvs.addEventListener('mousedown', () => { autoRotate = false; isDragging = true; });
-  window.addEventListener('mouseup', () => isDragging = false);
-  window.addEventListener('mousemove', e => {
-     if (!isDragging) return;
-     // Simple rotation logic...
-  });
 }
 
 function toggleAutoRotate() {

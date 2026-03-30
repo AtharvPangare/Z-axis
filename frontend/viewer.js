@@ -355,8 +355,8 @@ async function startPipeline(file) {
             pipelineRes = await res.json();
             if (pipelineRes.status !== "success") throw new Error(pipelineRes.message || "Pipeline error");
         } catch(e) { 
-            console.error("Pipeline failed", e);
-            alert("Error running the intelligence pipeline! Check backend console.");
+            console.error("Pipeline connectivity failed:", e);
+            alert("⚠️ CONNECTION ERROR: Unable to reach the structural intelligence engine on Port 5000.\n\nPlease ensure the Python backend is running!\nDetails: " + e.message);
             loadingState.classList.add('hidden');
             return;
         }
@@ -384,19 +384,15 @@ async function startPipeline(file) {
     if (exportBtn) exportBtn.classList.remove('hidden');
     exportBtn.classList.add('flex');
 
-    // Render the 2D uploaded photo and detections
-    if (file && ctx2d && pipelineRes) {
+    // Render the 2D processed photo (now in grayscale) and detections
+    if (pipelineRes && pipelineRes.artifacts && pipelineRes.artifacts.grayscale_preview && ctx2d) {
         globalParsedGeom2D = pipelineRes.geom;
-        const reader = new FileReader();
-        reader.onload = e => {
-            const img = new Image();
-            img.onload = () => {
-                globalImg2D = img;
-                draw2DView();
-            };
-            img.src = e.target.result;
+        const img = new Image();
+        img.onload = () => {
+            globalImg2D = img;
+            draw2DView();
         };
-        reader.readAsDataURL(file);
+        img.src = pipelineRes.artifacts.grayscale_preview;
     }
     
     if (pipelineRes && pipelineRes.model) {
