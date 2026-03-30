@@ -122,6 +122,7 @@ if (toggleViewBtn) {
 
 let globalImg2D = null;
 let globalParsedGeom2D = null;
+let lastModelData = null; // Store for JSON export
 
 function draw2DView() {
     if (!globalImg2D || !ctx2d) return;
@@ -396,6 +397,7 @@ async function startPipeline(file) {
     }
     
     if (pipelineRes && pipelineRes.model) {
+        lastModelData = pipelineRes.model; // Store for JSON export
         // Build door/window data for 3D rendering
         const geom = pipelineRes.geom || {};
         const imgSize = geom.image_size_px || { width: 600, height: 400 };
@@ -736,40 +738,31 @@ function initThreeJS(walls, pipelineOpenings = null) {
         gsap.to(controls.target, { x: 0, y: 0, z: 0, duration: 1, ease: "power2.inOut" });
     });
 
-    // Print Model Button
+    // Print Model Button -> Now Export JSON
     const printBtnEl = document.getElementById('print-model');
     if (printBtnEl) {
         const newPrintBtn = printBtnEl.cloneNode(true);
         printBtnEl.parentNode.replaceChild(newPrintBtn, printBtnEl);
+        
+        // Update label and icon if possible
+        const btnText = newPrintBtn.querySelector('span');
+        if (btnText) btnText.textContent = "Export JSON";
+        
         newPrintBtn.addEventListener('click', () => {
-            if (!renderer) return;
-            renderer.render(scene, camera);
-            const dataUrl = renderer.domElement.toDataURL("image/png");
-            const win = window.open('', '_blank');
-            if (win) {
-                win.document.write(`
-                    <html>
-                    <head>
-                        <title>Print 3D Model</title>
-                        <style>
-                            body { margin: 0; display: flex; justify-content: center; align-items: center; background: #fff; min-height: 100vh; }
-                            img { max-width: 100%; max-height: 98vh; object-fit: contain; }
-                            @media print {
-                                @page { margin: 0; size: landscape; }
-                                body { margin: 0; display: block; }
-                                img { width: 100%; height: 100%; object-fit: contain; }
-                            }
-                        </style>
-                    </head>
-                    <body>
-                        <img src="${dataUrl}" onload="window.print(); window.close();" />
-                    </body>
-                    </html>
-                `);
-                win.document.close();
-            } else {
-                alert("Please allow popups to print the 3D model.");
+            if (!lastModelData) {
+                alert("No model data available to export.");
+                return;
             }
+            
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(lastModelData, null, 2));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href",     dataStr);
+            downloadAnchorNode.setAttribute("download", "z_axis_model.json");
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+            
+            showToast("JSON Model Exported! 📄");
         });
         if (window.feather) feather.replace();
     }
