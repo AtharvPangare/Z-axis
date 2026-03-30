@@ -61,9 +61,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
 
-    <!-- Favicon -->
-    <link rel="icon" type="image/png" href="favicon.png">
-
     <!-- Feather Icons -->
     <script src="https://unpkg.com/feather-icons"></script>
 </head>
@@ -79,14 +76,14 @@
                 <div class="hidden md:flex space-x-8 items-center">
                     <a href="#app-section" class="text-brown-sec hover:text-brown-primary font-medium transition-colors">Create 3D Plan</a>
                     <a href="#" id="nav-recommend-materials" class="text-brown-sec hover:text-brown-primary font-medium transition-colors">Recommend Materials</a>
-                    <a href="#features" class="text-brown-sec hover:text-brown-primary font-medium transition-colors">Features</a>
+                    <a href="#features" class="text-brown-sec hover:text-brown-primary font-medium transition-colors">Capabilities</a>
                     <a href="#about" class="text-brown-sec hover:text-brown-primary font-medium transition-colors">About</a>
                 </div>
                 <div class="hidden md:flex items-center space-x-4">
-                    <a href="#app-section" class="inline-flex items-center px-6 py-2.5 border border-transparent text-sm font-semibold rounded-full shadow-soft text-beige-cream bg-orange-600 hover:bg-amber-800 transition-all transform hover:-translate-y-0.5">
+                    <a href="#app-section" class="inline-flex items-center px-6 py-2.5 border border-transparent text-sm font-semibold rounded-full shadow-soft text-beige-cream bg-brown-primary hover:bg-brown-dark transition-all transform hover:-translate-y-0.5">
                         Upload Plan
                     </a>
-                    <button id="logout-btn" class="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-full text-brown-dark bg-beige-light hover:bg-[#e6d5bd] transition-colors shadow-sm border border-brown-primary/10">
+                    <button id="logout-btn" class="hidden inline-flex items-center px-4 py-2 text-sm font-semibold rounded-full text-brown-dark bg-beige-light hover:bg-[#e6d5bd] transition-colors shadow-sm border border-brown-primary/10">
                         Logout
                     </button>
                 </div>
@@ -99,22 +96,13 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
             <div class="flex justify-between items-center mb-10">
                 <h2 class="text-3xl font-extrabold text-black-soft flex items-center">
-                    <i data-feather="cpu" class="text-brown-primary mr-3"></i> Materials Recommendation
+                    <i data-feather="cpu" class="text-brown-primary mr-3"></i> AI Material Recommendations
                 </h2>
-                <button id="close-materials" class="p-2.5 text-orange-600 hover:text-amber-800 transition-colors bg-beige-primary hover:bg-beige-light rounded-full shadow-sm border border-beige-light">
+                <button id="close-materials" class="p-2.5 text-brown-sec hover:text-brown-primary transition-colors bg-beige-primary hover:bg-beige-light rounded-full shadow-sm border border-beige-light">
                     <i data-feather="x" class="w-6 h-6"></i>
                 </button>
             </div>
 
-            <!-- Empty State -->
-            <div id="drawer-empty-state" class="text-center py-20 flex flex-col justify-center items-center">
-                <i data-feather="image" class="w-16 h-16 text-brown-primary/30 mb-4"></i>
-                <h3 class="text-2xl font-bold text-black-soft mb-2">No 3D Model Analyzed Yet</h3>
-                <p class="text-brown-sec">Upload a floor plan and run the pipeline to see AI material intelligence recommendations here.</p>
-            </div>
-
-            <!-- Content Wrapper -->
-            <div id="drawer-content" class="hidden">
             <!-- Stage 1: Table Summary -->
             <div class="bg-white rounded-[24px] shadow-sm border border-beige-light p-6 mb-12 overflow-hidden transform transition-all duration-500 delay-100 translate-y-4 opacity-0" id="materials-stage-1">
                 <h3 class="text-lg font-bold text-black-soft mb-4 px-2">Project Material Summary</h3>
@@ -124,6 +112,7 @@
                             <tr class="text-brown-sec text-xs uppercase tracking-wider bg-beige-primary">
                                 <th class="p-4 font-semibold rounded-tl-xl whitespace-nowrap">Structural Element</th>
                                 <th class="p-4 font-semibold whitespace-nowrap">Best Material</th>
+                                <th class="p-4 font-semibold whitespace-nowrap">Score</th>
                                 <th class="p-4 font-semibold whitespace-nowrap">Alternative</th>
                                 <th class="p-4 font-semibold rounded-tr-xl whitespace-nowrap">Risk Level</th>
                             </tr>
@@ -132,18 +121,21 @@
                             <tr class="hover:bg-beige-primary/50 transition-colors">
                                 <td class="p-4 font-medium text-black-soft">Load Bearing Wall</td>
                                 <td class="p-4 text-brown-primary font-semibold">Red Brick</td>
+                                <td class="p-4"><span class="px-2 py-1 bg-green-100 text-green-700 rounded-lg font-mono text-xs font-bold">0.82</span></td>
                                 <td class="p-4 text-brown-sec">Fly Ash Brick</td>
                                 <td class="p-4"><span class="px-3 py-1 bg-green-50 text-green-600 rounded-full text-xs font-semibold">Low</span></td>
                             </tr>
                             <tr class="hover:bg-beige-primary/50 transition-colors">
                                 <td class="p-4 font-medium text-black-soft">Partition Wall</td>
                                 <td class="p-4 text-brown-primary font-semibold">AAC Blocks</td>
+                                <td class="p-4"><span class="px-2 py-1 bg-green-100 text-green-700 rounded-lg font-mono text-xs font-bold">0.91</span></td>
                                 <td class="p-4 text-brown-sec">Hollow Block</td>
                                 <td class="p-4"><span class="px-3 py-1 bg-green-50 text-green-600 rounded-full text-xs font-semibold">Low</span></td>
                             </tr>
                             <tr class="hover:bg-beige-primary/50 transition-colors">
                                 <td class="p-4 font-medium text-black-soft">Columns</td>
                                 <td class="p-4 text-brown-primary font-semibold">RCC</td>
+                                <td class="p-4"><span class="px-2 py-1 bg-green-100 text-green-700 rounded-lg font-mono text-xs font-bold">0.95</span></td>
                                 <td class="p-4 text-brown-sec">Steel Frame</td>
                                 <td class="p-4"><span class="px-3 py-1 bg-yellow-50 text-yellow-600 rounded-full text-xs font-semibold">Medium</span></td>
                             </tr>
@@ -155,7 +147,7 @@
             <!-- Stage 2: Cards -->
             <div class="transform transition-all duration-500 delay-200 translate-y-4 opacity-0" id="materials-stage-2">
                 <h3 class="text-xl font-bold text-black-soft mb-6">Select Element for Analysis</h3>
-                <div class="flex overflow-x-auto pt-4 -mt-4 pb-8 hide-scrollbar snap-x snap-mandatory gap-6" id="material-cards-container">
+                <div class="flex overflow-x-auto pb-8 hide-scrollbar snap-x snap-mandatory gap-6" id="material-cards-container">
                     <!-- JS will populate -->
                 </div>
             </div>
@@ -164,7 +156,7 @@
             <div id="materials-stage-3" class="hidden mt-4 bg-white rounded-[24px] shadow-sm border border-beige-light p-8 transform transition-all duration-500 opacity-0 translate-y-4">
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
                     <div>
-                        <h4 class="text-lg font-bold text-black-soft mb-6 flex items-center" id="analysis-title">Most Recommended Materials</h4>
+                        <h4 class="text-lg font-bold text-black-soft mb-6 flex items-center" id="analysis-title">Material Ranking</h4>
                         <div id="ranking-bars-container" class="space-y-6"></div>
                     </div>
                     <div class="bg-beige-primary/50 rounded-[20px] p-6 border border-beige-light opacity-0 transform translate-y-4 transition-all duration-500" id="ai-explanation-box">
@@ -179,7 +171,6 @@
                     </div>
                 </div>
             </div>
-            </div> <!-- End drawer-content -->
         </div>
     </div>
 
@@ -196,10 +187,12 @@
                         Convert 2D Plans into Intelligent 3D Structures. The complete platform for automated structural analysis and material intelligence.
                     </p>
                     <div class="mt-8 flex flex-col sm:flex-row gap-4 hero-buttons font-sans">
-                        <a href="#app-section" class="px-8 py-4 border border-transparent text-lg font-semibold rounded-full shadow-soft text-beige-cream bg-orange-600 hover:bg-amber-800 transition-all transform hover:-translate-y-1 hover:shadow-elevate text-center">
+                        <a href="#app-section" class="px-8 py-4 border border-transparent text-lg font-semibold rounded-full shadow-soft text-beige-cream bg-brown-primary hover:bg-brown-dark transition-all transform hover:-translate-y-1 hover:shadow-elevate text-center">
                             Upload Plan
                         </a>
-
+                        <a href="#app-section" class="px-8 py-4 border-2 border-brown-primary text-lg font-semibold rounded-full text-brown-dark bg-beige-primary hover:bg-beige-light transition-all transform hover:-translate-y-1 text-center">
+                            Try Demo
+                        </a>
                     </div>
                 </div>
                 <!-- Hero 3D Animation -->
@@ -214,57 +207,56 @@
         </div>
     </section>
 
+    <!-- ═══ CAPABILITIES ══════════════════════════════════════════════ -->
     <section id="features" class="py-24 bg-beige-cream overflow-hidden relative border-y border-beige-light">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-12">
-            <h2 class="text-3xl font-bold text-black-soft mb-4 section-title">Custom Design Studio</h2>
-            <p class="text-brown-sec max-w-2xl">Don't have a floor plan yet? Use our interactive drafting table to sketch your structural vision from scratch.</p>
+            <h2 class="text-3xl font-bold text-black-soft mb-4 section-title">Capabilities</h2>
         </div>
-        
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <a href="draw.html" class="block group relative bg-white rounded-[32px] overflow-hidden border border-beige-light shadow-soft hover:shadow-elevate transition-all duration-500 transform hover:-translate-y-2">
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-0">
-                    <div class="p-10 lg:p-16 flex flex-col justify-center">
-                        <div class="inline-flex items-center px-4 py-1.5 rounded-full bg-orange-50 text-orange-600 text-xs font-bold uppercase tracking-wider mb-6 border border-orange-100">
-                            New Feature
-                        </div>
-                        <h3 class="text-4xl font-extrabold text-black-soft mb-6 leading-tight">
-                            Interactive <br/><span class="text-brown-primary">Drafting Table</span>
-                        </h3>
-                        <p class="text-lg text-brown-sec mb-10 leading-relaxed">
-                            Draw walls, place windows, and define doors in our professional sketch tool. Perfectly aligned to engineering grids for instant 3D conversion.
-                        </p>
-                        <div class="flex items-center gap-4 text-orange-600 font-bold group-hover:gap-6 transition-all">
-                            Start Drawing Now <i data-feather="arrow-right" class="w-5 h-5"></i>
-                        </div>
+        <div class="flex overflow-x-auto pb-12 hide-scrollbar snap-x snap-mandatory px-4 sm:px-6 lg:px-8 scroll-smooth py-4">
+            <div class="flex flex-nowrap gap-6">
+                <div class="snap-center shrink-0 w-72 h-72 bg-beige-primary rounded-2xl p-8 shadow-sm hover:shadow-elevate border border-beige-light transition-all duration-300 transform hover:scale-[1.03] hover:-translate-y-2 group flex flex-col justify-center items-center text-center feature-card">
+                    <div class="w-16 h-16 rounded-full bg-white flex items-center justify-center mb-6 group-hover:bg-beige-cream transition-colors border border-beige-light">
+                        <i data-feather="image" class="text-brown-primary w-8 h-8"></i>
                     </div>
-                    <div class="relative bg-beige-primary/30 min-h-[300px] overflow-hidden border-l border-beige-light">
-                        <!-- Abstract Design Graphic for Drawing Layout -->
-                        <div class="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,_#8B6F47_1px,_transparent_1px)] bg-[size:24px_24px]"></div>
-                        <div class="absolute inset-0 flex items-center justify-center p-8">
-                            <div class="relative w-full h-full max-w-[400px] max-h-[300px] border-2 border-brown-primary/20 rounded-xl bg-white/80 backdrop-blur-sm shadow-inner flex flex-col overflow-hidden">
-                                <div class="h-8 border-b border-brown-primary/10 flex items-center px-3 gap-2">
-                                    <div class="w-2 h-2 rounded-full bg-red-400"></div>
-                                    <div class="w-2 h-2 rounded-full bg-amber-400"></div>
-                                    <div class="w-2 h-2 rounded-full bg-green-400"></div>
-                                </div>
-                                <div class="flex-1 p-4 relative overflow-hidden">
-                                     <svg class="w-full h-full text-brown-primary/20" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="0.5">
-                                        <path d="M10 10 L40 10 L40 60 L10 60 Z" stroke-width="1.5" stroke-dasharray="2 1" />
-                                        <path d="M40 10 L80 10 L80 40 L40 40" stroke-width="1.5" />
-                                        <circle cx="40" cy="40" r="2" fill="currentColor" />
-                                        <path d="M80 40 L80 80 L20 80 L20 60" stroke-width="1.5" />
-                                        <path d="M25 10 L35 10" class="text-blue-400" stroke-width="2" /> <!-- Window -->
-                                        <path d="M80 50 L80 70" class="text-blue-400" stroke-width="2" /> <!-- Window -->
-                                        <path d="M40 45 L40 55" class="text-orange-400" stroke-width="2" /> <!-- Door -->
-                                     </svg>
-                                </div>
-                            </div>
-                        </div>
-                        <!-- Animated elements -->
-                        <div class="absolute top-1/4 right-1/4 w-32 h-32 bg-orange-600/10 rounded-full blur-3xl animate-pulse"></div>
-                    </div>
+                    <h3 class="text-xl font-bold text-black-soft mb-3">2D Plan Detection</h3>
+                    <p class="text-brown-sec leading-relaxed">Instantly convert flat floor plans into structured datasets</p>
                 </div>
-            </a>
+                <div class="snap-center shrink-0 w-72 h-72 bg-beige-primary rounded-2xl p-8 shadow-sm hover:shadow-elevate border border-beige-light transition-all duration-300 transform hover:scale-[1.03] hover:-translate-y-2 group flex flex-col justify-center items-center text-center feature-card">
+                    <div class="w-16 h-16 rounded-full bg-white flex items-center justify-center mb-6 group-hover:bg-beige-cream transition-colors border border-beige-light">
+                        <i data-feather="box" class="text-brown-primary w-8 h-8"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-black-soft mb-3">3D Model Generation</h3>
+                    <p class="text-brown-sec leading-relaxed">Interactive architectural wireframe rendering</p>
+                </div>
+                <div class="snap-center shrink-0 w-72 h-72 bg-beige-primary rounded-2xl p-8 shadow-sm hover:shadow-elevate border border-beige-light transition-all duration-300 transform hover:scale-[1.03] hover:-translate-y-2 group flex flex-col justify-center items-center text-center feature-card">
+                    <div class="w-16 h-16 rounded-full bg-white flex items-center justify-center mb-6 group-hover:bg-beige-cream transition-colors border border-beige-light">
+                        <i data-feather="hexagon" class="text-brown-primary w-8 h-8"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-black-soft mb-3">Structural Analysis</h3>
+                    <p class="text-brown-sec leading-relaxed">Detect load-bearing elements and optimise safety</p>
+                </div>
+                <div class="snap-center shrink-0 w-72 h-72 bg-beige-primary rounded-2xl p-8 shadow-sm hover:shadow-elevate border border-beige-light transition-all duration-300 transform hover:scale-[1.03] hover:-translate-y-2 group flex flex-col justify-center items-center text-center feature-card">
+                    <div class="w-16 h-16 rounded-full bg-white flex items-center justify-center mb-6 group-hover:bg-beige-cream transition-colors border border-beige-light">
+                        <i data-feather="layers" class="text-brown-primary w-8 h-8"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-black-soft mb-3">Material Intelligence</h3>
+                    <p class="text-brown-sec leading-relaxed">AI suggests optimal building materials based on load</p>
+                </div>
+                <div class="snap-center shrink-0 w-72 h-72 bg-beige-primary rounded-2xl p-8 shadow-sm hover:shadow-elevate border border-beige-light transition-all duration-300 transform hover:scale-[1.03] hover:-translate-y-2 group flex flex-col justify-center items-center text-center feature-card">
+                    <div class="w-16 h-16 rounded-full bg-white flex items-center justify-center mb-6 group-hover:bg-beige-cream transition-colors border border-beige-light">
+                        <i data-feather="dollar-sign" class="text-brown-primary w-8 h-8"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-black-soft mb-3">Cost-Strength Tradeoff</h3>
+                    <p class="text-brown-sec leading-relaxed">Balance budget constraints with engineering durability</p>
+                </div>
+                <div class="snap-center shrink-0 w-72 h-72 bg-beige-primary rounded-2xl p-8 shadow-sm hover:shadow-elevate border border-beige-light transition-all duration-300 transform hover:scale-[1.03] hover:-translate-y-2 group flex flex-col justify-center items-center text-center feature-card">
+                    <div class="w-16 h-16 rounded-full bg-white flex items-center justify-center mb-6 group-hover:bg-beige-cream transition-colors border border-beige-light">
+                        <i data-feather="cpu" class="text-brown-primary w-8 h-8"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-black-soft mb-3">Explainable AI</h3>
+                    <p class="text-brown-sec leading-relaxed">Transparent reasoning for all engineering suggestions</p>
+                </div>
+            </div>
         </div>
     </section>
 
@@ -297,7 +289,7 @@
                         <p class="text-xl font-semibold text-black-soft mb-2">Drag & drop your floor plan here</p>
                         <p class="text-sm text-brown-sec mb-6">Supports JPG, PNG (Max 10MB)</p>
                         <input type="file" id="file-upload" class="hidden" accept="image/png, image/jpeg">
-                        <button class="px-8 py-3 border border-transparent text-sm font-semibold rounded-full text-beige-cream bg-orange-600 hover:bg-amber-800 shadow-soft transition-colors">
+                        <button class="px-8 py-3 border border-transparent text-sm font-semibold rounded-full text-beige-cream bg-brown-primary hover:bg-brown-dark shadow-soft transition-colors">
                             Select File
                         </button>
                     </div>
@@ -331,21 +323,13 @@
                             </p>
                         </div>
                         <div class="flex items-center gap-3">
-                            <button id="change-image-btn"
-                                class="text-sm font-medium text-brown-dark hover:text-brown-primary bg-white border border-beige-light px-4 py-2 rounded-full shadow-sm transition-colors flex items-center gap-1">
-                                <i data-feather="image" class="w-4 h-4"></i> Change Image
-                            </button>
                             <button id="toggle-view"
                                 class="text-sm font-semibold text-brown-dark bg-white border border-beige-light px-4 py-2 rounded-full shadow-sm hover:bg-beige-light transition-colors">
                                 Switch to 3D
                             </button>
                             <button id="reset-cam"
-                                class="hidden text-sm font-medium text-orange-600 hover:text-amber-800 bg-white border border-beige-light px-4 py-2 rounded-full shadow-sm transition-colors">
+                                class="hidden text-sm font-medium text-brown-primary hover:text-brown-dark bg-white border border-beige-light px-4 py-2 rounded-full shadow-sm transition-colors">
                                 Reset View
-                            </button>
-                            <button id="print-model"
-                                class="hidden text-sm font-medium text-orange-600 hover:text-amber-800 bg-white border border-beige-light px-4 py-2 rounded-full shadow-sm transition-colors flex items-center gap-1">
-                                <i data-feather="download" class="w-4 h-4"></i> <span>Export JSON</span>
                             </button>
                         </div>
                     </div>
@@ -394,12 +378,12 @@
                 <div class="bg-white rounded-[24px] overflow-hidden shadow-sm border border-beige-light p-8">
                     <div class="flex justify-between items-center mb-6">
                         <h3 class="text-2xl font-bold text-black-soft">Material Requirements</h3>
-                        <button id="export-pdf" class="hidden flex items-center text-sm font-semibold text-beige-cream bg-orange-600 hover:bg-amber-800 px-4 py-2 rounded-lg transition shadow-sm">
+                        <button id="export-pdf" class="hidden flex items-center text-sm font-semibold text-beige-cream bg-brown-primary px-4 py-2 rounded-lg hover:bg-brown-dark transition shadow-sm">
                             <i data-feather="download" class="w-4 h-4 mr-2"></i> Export Report
                         </button>
                     </div>
                     <div class="overflow-x-auto">
-                        <table id="materials-table" class="w-full text-left border-collapse">
+                        <table class="w-full text-left border-collapse">
                             <thead>
                                 <tr class="bg-beige-primary text-brown-sec text-sm uppercase tracking-wider">
                                     <th class="p-4 rounded-tl-xl font-medium">Wall ID</th>
@@ -448,23 +432,10 @@
             &copy; 2026 Z-Axis Platform. Built for the AI/ML Hackathon.
         </div>
     </footer>
-    
-    <!-- Floating Draw Plan Button -->
-    <a href="draw.html" class="fixed bottom-8 left-8 z-[100] group flex items-center gap-3 bg-orange-600 hover:bg-amber-800 text-beige-cream p-4 pr-6 rounded-full shadow-elevate transition-all duration-300 hover:scale-110 active:scale-95">
-        <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm group-hover:bg-white/30 transition-colors">
-            <i data-feather="edit-3" class="w-5 h-5"></i>
-        </div>
-        <span class="font-bold tracking-wide">Draw Plan</span>
-    </a>
 
     <script>feather.replace();</script>
-    <!-- jsPDF and AutoTable for PDF Reports -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.21/jspdf.plugin.autotable.min.js"></script>
-
     <script src="viewer.js"></script>
     <script src="about-animation.js"></script>
     <script src="materials-ui.js"></script>
-    <script src="auth-check.js"></script>
 </body>
 </html>
