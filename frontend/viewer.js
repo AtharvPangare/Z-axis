@@ -1,3 +1,23 @@
+// --- Auth Guardian --- //
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        const hostname = window.location.hostname;
+        const res = await fetch(`http://${hostname}:5000/auth/me`, { credentials: 'include' });
+        if (!res.ok) throw new Error("Unauthorized");
+        
+        const logoutBtn = document.getElementById('logout-btn');
+        if (logoutBtn) {
+            logoutBtn.classList.remove('hidden');
+            logoutBtn.addEventListener('click', async () => {
+                await fetch(`http://${hostname}:5000/auth/logout`, { method: 'POST', credentials: 'include' });
+                window.location.href = 'login.html';
+            });
+        }
+    } catch (err) {
+        window.location.href = 'login.html';
+    }
+});
+
 // --- GSAP Scroll Animations Setup --- //
 document.addEventListener('DOMContentLoaded', () => {
     // Hero Animations
@@ -333,7 +353,12 @@ async function startPipeline(file) {
         const formData = new FormData();
         formData.append('file', file);
         try {
-            const res = await fetch('http://127.0.0.1:5000/pipeline', { method: 'POST', body: formData });
+            const hostname = window.location.hostname;
+            const res = await fetch(`http://${hostname}:5000/pipeline`, { 
+                method: 'POST', 
+                body: formData,
+                credentials: 'include'
+            });
             pipelineRes = await res.json();
             if (pipelineRes.status !== "success") throw new Error(pipelineRes.message || "Pipeline error");
         } catch(e) { 

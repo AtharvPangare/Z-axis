@@ -13,8 +13,11 @@ from explainer.llm_explainer import explain_all_recommendations
 
 load_dotenv()
 app = Flask(__name__)
-# Enable CORS for frontend integration
-CORS(app)
+# Enable CORS for frontend integration, including credentials (cookies)
+CORS(app, supports_credentials=True)
+
+from auth.routes import auth_bp, require_auth
+app.register_blueprint(auth_bp)
 
 @app.route('/parse', methods=['POST'])
 def parse():
@@ -79,6 +82,7 @@ def explain():
     return jsonify({"explanations": explanations})
 
 @app.route('/pipeline', methods=['POST'])
+@require_auth
 def pipeline_endpoint():
     """Stage 6: Full End-to-End Pipeline"""
     if 'file' not in request.files:

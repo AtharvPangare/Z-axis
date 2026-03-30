@@ -6,3 +6,8 @@ shapely
 anthropic
 python-dotenv
 networkx
+pymongo
+bcrypt
+PyJWT
+google-auth
+requests
