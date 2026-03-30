@@ -393,7 +393,7 @@
                         </button>
                     </div>
                     <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
+                        <table id="materials-table" class="w-full text-left border-collapse">
                             <thead>
                                 <tr class="bg-beige-primary text-brown-sec text-sm uppercase tracking-wider">
                                     <th class="p-4 rounded-tl-xl font-medium">Wall ID</th>
@@ -452,6 +452,10 @@
     </a>
 
     <script>feather.replace();</script>
+    <!-- jsPDF and AutoTable for PDF Reports -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.21/jspdf.plugin.autotable.min.js"></script>
+
     <script src="viewer.js"></script>
     <script src="about-animation.js"></script>
     <script src="materials-ui.js"></script>

@@ -77,19 +77,40 @@ if (exportBtn) {
     exportBtn.addEventListener('click', () => {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
-        doc.setFontSize(18);
+        
+        // Add Title
+        doc.setFontSize(22);
+        doc.setTextColor(26, 26, 26); // black-soft (#1a1a1a)
         doc.text("Z-Axis Structural Material Report", 14, 22);
-        
-        // Grab table element directly to AutoTable
+
+        // Styling the table
         doc.autoTable({
-            html: 'table',
-            startY: 30,
-            theme: 'striped',
-            headStyles: { fillColor: [6, 182, 212] },
-            styles: { fontSize: 10 }
+            html: '#materials-table',
+            startY: 32,
+            theme: 'grid',
+            headStyles: { 
+                fillColor: [6, 182, 212], // cyan-500 (#06b6d4)
+                textColor: 255, 
+                fontSize: 11, 
+                fontStyle: 'bold',
+                halign: 'left'
+            },
+            bodyStyles: { 
+                textColor: 74, // brown-sec (#4a3b2a approx)
+                fontSize: 10,
+                cellPadding: 6
+            },
+            alternateRowStyles: { 
+                fillColor: [248, 250, 252] // slate-50
+            },
+            margin: { top: 30 }
         });
-        
+
         doc.save('Z-Axis_Materials_Report.pdf');
+        
+        if (typeof showToast === 'function') {
+            showToast("Material Report Generated! 📥");
+        }
     });
 }
 
