@@ -16,4 +16,3 @@ Backend: Flask (Python)
 Computer Vision: OpenCV, NumPy
 3D Rendering: Three.js
 AI/LLM: DeepSeek API
-Database/Auth: MongoDB, JWT, Google OAuth

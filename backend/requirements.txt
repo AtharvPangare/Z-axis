@@ -6,7 +6,3 @@ shapely
 openai
 python-dotenv
 networkx
-pymongo
-bcrypt
-PyJWT
-google-auth

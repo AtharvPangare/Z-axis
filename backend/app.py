@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory, redirect
 from flask_cors import CORS
 import os
 import tempfile
@@ -13,7 +13,8 @@ from parser.geometry_builder import build_geometry
 from model3d.model_generator import generate_3d_model
 from materials.tradeoff_engine import rank_materials
 from explainer.llm_explainer import explain_all_recommendations
-from auth.routes import auth_bp
+
+FRONTEND_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'frontend'))
 
 def encode_png_data_url(image: np.ndarray) -> str:
     success, encoded = cv2.imencode(".png", image)
@@ -47,10 +48,7 @@ def draw_annotated_plan(image_path, walls, rooms, openings):
 
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 app = Flask(__name__)
-# Enable CORS for frontend integration and allow credentials for auth cookies
-CORS(app, supports_credentials=True)
-
-app.register_blueprint(auth_bp)
+CORS(app)
 
 @app.route('/parse', methods=['POST'])
 def parse():
@@ -240,6 +238,25 @@ def pipeline_draw():
         import traceback
         traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/health', methods=['GET'])
+def health():
+    return jsonify({"status": "ok"})
+
+@app.route('/')
+def serve_index():
+    return send_from_directory(FRONTEND_DIR, 'index.html')
+
+@app.route('/login.html')
+def redirect_login():
+    return redirect('/', code=302)
+
+@app.route('/<path:filename>')
+def serve_static(filename):
+    file_path = os.path.join(FRONTEND_DIR, filename)
+    if os.path.isfile(file_path):
+        return send_from_directory(FRONTEND_DIR, filename)
+    return jsonify({"error": "File not found"}), 404
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000, debug=True)
