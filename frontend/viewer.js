@@ -396,13 +396,16 @@ async function startPipeline(file) {
     if (file) {
         const formData = new FormData();
         formData.append('file', file);
+        const apiBase = (window.location.protocol === 'file:' || window.location.port === '5500' || window.location.port === '3000') 
+            ? 'http://127.0.0.1:5000' 
+            : window.location.origin;
         try {
-            const res = await fetch('http://127.0.0.1:5000/pipeline', { method: 'POST', body: formData });
+            const res = await fetch(`${apiBase}/pipeline`, { method: 'POST', body: formData });
             pipelineRes = await res.json();
             if (pipelineRes.status !== "success") throw new Error(pipelineRes.message || "Pipeline error");
         } catch(e) { 
             console.error("Pipeline connectivity failed:", e);
-            alert("⚠️ CONNECTION ERROR: Unable to reach the structural intelligence engine on Port 5000.\n\nPlease ensure the Python backend is running!\nDetails: " + e.message);
+            alert("⚠️ CONNECTION ERROR: Unable to reach the structural intelligence engine.\n\nPlease ensure the backend service is running!\nDetails: " + e.message);
             loadingState.classList.add('hidden');
             return;
         }
