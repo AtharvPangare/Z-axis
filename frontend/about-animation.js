@@ -10,11 +10,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const camera = new THREE.PerspectiveCamera(40, container.clientWidth / container.clientHeight, 0.1, 1000);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "default" });
     renderer.setSize(container.clientWidth, container.clientHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    // Handle context loss gracefully
+    renderer.domElement.addEventListener('webglcontextlost', (e) => {
+        e.preventDefault();
+        console.warn('Hero 3D WebGL context lost.');
+    }, false);
+
     container.appendChild(renderer.domElement);
 
     // 2. Lighting
@@ -24,8 +31,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const mainLight = new THREE.DirectionalLight(0xffffff, 0);
     mainLight.position.set(10, 20, 10);
     mainLight.castShadow = true;
-    mainLight.shadow.mapSize.width = 2048;
-    mainLight.shadow.mapSize.height = 2048;
+    mainLight.shadow.mapSize.width = 1024;
+    mainLight.shadow.mapSize.height = 1024;
     mainLight.shadow.camera.near = 0.5;
     mainLight.shadow.camera.far = 50;
     mainLight.shadow.camera.left = -10;
@@ -157,16 +164,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 8. Render Loop
+    // 8. Render Loop (paused when scrolled away from hero section to save GPU)
+    let isHeroVisible = true;
+    if ('IntersectionObserver' in window) {
+        const heroObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                isHeroVisible = entry.isIntersecting;
+            });
+        }, { threshold: 0.05 });
+        heroObserver.observe(container);
+    }
+
     function animate() {
         requestAnimationFrame(animate);
-        renderer.render(scene, camera);
+        if (isHeroVisible && container.clientWidth > 0 && container.clientHeight > 0) {
+            renderer.render(scene, camera);
+        }
     }
     animate();
 
     // 9. Resize Handler
     window.addEventListener('resize', () => {
-        if (!container) return;
+        if (!container || container.clientWidth <= 0 || container.clientHeight <= 0) return;
         camera.aspect = container.clientWidth / container.clientHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(container.clientWidth, container.clientHeight);

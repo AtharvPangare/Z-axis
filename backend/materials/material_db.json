@@ -1,29 +1,92 @@
 [
-  {"name": "AAC Blocks", "cost": "Low", "strength": "Medium", 
-   "durability": "High", "best_use": "Partition walls",
-   "cost_score": 1, "strength_score": 2, "durability_score": 3},
-
-  {"name": "Red Brick", "cost": "Medium", "strength": "High", 
-   "durability": "Medium", "best_use": "Load-bearing walls",
-   "cost_score": 2, "strength_score": 3, "durability_score": 2},
-
-  {"name": "RCC", "cost": "High", "strength": "Very High", 
-   "durability": "Very High", "best_use": "Columns, slabs",
-   "cost_score": 3, "strength_score": 4, "durability_score": 4},
-
-  {"name": "Steel Frame", "cost": "High", "strength": "Very High", 
-   "durability": "Very High", "best_use": "Long spans over 5m",
-   "cost_score": 3, "strength_score": 4, "durability_score": 4},
-
-  {"name": "Hollow Concrete Block", "cost": "Low-Med", "strength": "Medium", 
-   "durability": "Medium", "best_use": "Non-structural walls",
-   "cost_score": 1.5, "strength_score": 2, "durability_score": 2},
-
-  {"name": "Fly Ash Brick", "cost": "Low", "strength": "Medium-High", 
-   "durability": "High", "best_use": "General walling",
-   "cost_score": 1, "strength_score": 2.5, "durability_score": 3},
-
-  {"name": "Precast Concrete Panel", "cost": "Med-High", "strength": "High", 
-   "durability": "Very High", "best_use": "Structural walls, slabs",
-   "cost_score": 2.5, "strength_score": 3, "durability_score": 4}
+  {
+    "type": "LOAD_BEARING",
+    "description": "Load-Bearing Wall holding window openings (requires RCC lintels & high compressive strength)",
+    "materials": [
+      {
+        "name": "Reinforced Cement Concrete (RCC M25)",
+        "score": 0.95,
+        "cost": "$115/m² (₹85/sq.ft)",
+        "strength": "25.0 N/mm² (Very High)",
+        "durability": "50+ Years (Class A)",
+        "density": "2400 kg/m³",
+        "fire_rating": "4 Hours",
+        "thermal_conductivity": "1.25 W/m·K",
+        "acoustic_stc": "52 dB",
+        "thickness": "230 mm (9 inch)",
+        "lintel": "RCC M25 Lintel Band (Mandatory over openings)"
+      },
+      {
+        "name": "Class 1 Red Clay Brick (with RCC Lintel)",
+        "score": 0.86,
+        "cost": "$85/m² (₹70/sq.ft)",
+        "strength": "10.5 N/mm² (High)",
+        "durability": "40+ Years (Class A)",
+        "density": "1900 kg/m³",
+        "fire_rating": "4 Hours",
+        "thermal_conductivity": "0.80 W/m·K",
+        "acoustic_stc": "48 dB",
+        "thickness": "230 mm (9 inch)",
+        "lintel": "RCC M20 Lintel with Fe500 rebar"
+      },
+      {
+        "name": "High-Strength Fly Ash Brick (Class 10)",
+        "score": 0.81,
+        "cost": "$75/m² (₹60/sq.ft)",
+        "strength": "10.0 N/mm² (High)",
+        "durability": "35+ Years (Standard)",
+        "density": "1750 kg/m³",
+        "fire_rating": "3 Hours",
+        "thermal_conductivity": "0.72 W/m·K",
+        "acoustic_stc": "46 dB",
+        "thickness": "230 mm (9 inch)",
+        "lintel": "RCC Lintel with 200mm bearing"
+      }
+    ]
+  },
+  {
+    "type": "PARTITION",
+    "description": "Non-Load-Bearing Partition Wall without window (lightweight infill & acoustic insulation)",
+    "materials": [
+      {
+        "name": "Autoclaved Aerated Concrete (AAC) Blocks",
+        "score": 0.92,
+        "cost": "$48/m² (₹55/sq.ft)",
+        "strength": "4.0 N/mm² (Optimal Infill)",
+        "durability": "40+ Years (Class A)",
+        "density": "600 kg/m³ (Lightweight)",
+        "fire_rating": "4 Hours",
+        "thermal_conductivity": "0.16 W/m·K",
+        "acoustic_stc": "42 dB",
+        "thickness": "100-150 mm (4-6 inch)",
+        "lintel": "None Required (Solid wall)"
+      },
+      {
+        "name": "Hollow Concrete Partition Blocks",
+        "score": 0.80,
+        "cost": "$42/m² (₹48/sq.ft)",
+        "strength": "3.5 N/mm² (Standard)",
+        "durability": "30+ Years (Standard)",
+        "density": "1100 kg/m³",
+        "fire_rating": "2 Hours",
+        "thermal_conductivity": "0.45 W/m·K",
+        "acoustic_stc": "38 dB",
+        "thickness": "100 mm (4 inch)",
+        "lintel": "None Required (Solid wall)"
+      },
+      {
+        "name": "Drywall Steel Stud with Gypsum Infill",
+        "score": 0.73,
+        "cost": "$36/m² (₹40/sq.ft)",
+        "strength": "2.5 N/mm² (Partition)",
+        "durability": "20+ Years (Dry System)",
+        "density": "45 kg/m³",
+        "fire_rating": "1 Hour",
+        "thermal_conductivity": "0.19 W/m·K",
+        "acoustic_stc": "40 dB",
+        "thickness": "75 mm (3 inch)",
+        "lintel": "None Required (Solid wall)"
+      }
+    ]
+  }
 ]

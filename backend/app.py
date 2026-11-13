@@ -12,7 +12,6 @@ from parser.fallback_coords import get_fallback_geometry
 from parser.geometry_builder import build_geometry
 from model3d.model_generator import generate_3d_model
 from materials.tradeoff_engine import rank_materials
-from explainer.llm_explainer import explain_all_recommendations
 
 FRONTEND_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'frontend'))
 
@@ -61,6 +60,16 @@ def parse():
         temp_fd, temp_path = tempfile.mkstemp(suffix=".png")
         os.close(temp_fd)
         file.save(temp_path)
+
+        # Guard against oversized images causing CPU lockups
+        in_img = cv2.imread(temp_path)
+        if in_img is not None:
+            ih, iw = in_img.shape[:2]
+            max_dim = 1400
+            if max(ih, iw) > max_dim:
+                scale_factor = max_dim / float(max(ih, iw))
+                resized = cv2.resize(in_img, (int(iw * scale_factor), int(ih * scale_factor)), interpolation=cv2.INTER_AREA)
+                cv2.imwrite(temp_path, resized)
         
         try:
             parsed_data = parse_floor_plan(temp_path)
@@ -97,19 +106,19 @@ def materials():
     
     recommendations = []
     for w in model_data.get('walls', []):
-        rec = rank_materials(w['id'], w['type'], w['span_metres'])
+        rec = rank_materials(w['id'], w['type'], w.get('span_metres', 0), holds_window=w.get('holds_window', False))
         recommendations.append(rec)
     return jsonify({"recommendations": recommendations})
 
 @app.route('/explain', methods=['POST'])
 def explain():
-    """Stage 5: LLM Explanations"""
-    req_data = request.json
-    if not req_data:
-        return jsonify({"error": "No JSON data"}), 400
-        
+    """Stage 5: Structural Engineering Specifications"""
+    req_data = request.json or {}
     recommendations = req_data.get("recommendations", [])
-    explanations = explain_all_recommendations(recommendations)
+    explanations = [
+        {"element_id": r.get("element_id"), "explanation": r.get("explanation", "Structural component verified.")}
+        for r in recommendations
+    ]
     return jsonify({"explanations": explanations})
 
 @app.route('/pipeline', methods=['POST'])
@@ -125,6 +134,16 @@ def pipeline_endpoint():
         temp_fd, temp_path = tempfile.mkstemp(suffix=".png")
         os.close(temp_fd)
         file.save(temp_path)
+
+        # Guard against oversized images causing CPU lockups
+        in_img = cv2.imread(temp_path)
+        if in_img is not None:
+            ih, iw = in_img.shape[:2]
+            max_dim = 1400
+            if max(ih, iw) > max_dim:
+                scale_factor = max_dim / float(max(ih, iw))
+                resized = cv2.resize(in_img, (int(iw * scale_factor), int(ih * scale_factor)), interpolation=cv2.INTER_AREA)
+                cv2.imwrite(temp_path, resized)
         
         # 1. Parse Image
         try:
@@ -141,14 +160,14 @@ def pipeline_endpoint():
         # 3. Model Generator
         model_data = generate_3d_model(geom_data)
         
-        # 4. Materials Tradeoff
+        # 4. Materials Tradeoff & Engineering Specifications
         recommendations = []
         for w in model_data.get('walls', []):
-            rec = rank_materials(w['id'], w['type'], w['span_metres'])
+            rec = rank_materials(w['id'], w['type'], w.get('span_metres', 0), holds_window=w.get('holds_window', False))
             recommendations.append(rec)
             
         # 5. Explanations
-        explanations = explain_all_recommendations(recommendations)
+        explanations = [{"element_id": r["element_id"], "explanation": r["explanation"]} for r in recommendations]
         
         # 6. Artifacts for UI Previews
         gray = cv2.imread(temp_path, cv2.IMREAD_GRAYSCALE)
@@ -218,14 +237,14 @@ def pipeline_draw():
         # 3. Model Generator
         model_data = generate_3d_model(geom_data)
         
-        # 4. Materials Tradeoff
+        # 4. Materials Tradeoff & Engineering Specifications
         recommendations = []
         for w in model_data.get('walls', []):
-            rec = rank_materials(w['id'], w['type'], w['span_metres'])
+            rec = rank_materials(w['id'], w['type'], w.get('span_metres', 0), holds_window=w.get('holds_window', False))
             recommendations.append(rec)
             
         # 5. Explanations
-        explanations = explain_all_recommendations(recommendations)
+        explanations = [{"element_id": r["element_id"], "explanation": r["explanation"]} for r in recommendations]
         
         return jsonify({
             "status": "success",

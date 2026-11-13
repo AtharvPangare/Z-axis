@@ -39,9 +39,6 @@
         </button>
       </div>
       <div class="nav-right">
-        <button class="btn-ghost-nav" id="api-key-btn" onclick="openApiModal()">
-          <i data-feather="key" class="w-4 h-4"></i> API Key
-        </button>
         <button class="btn-analyze" id="main-analyze-btn" onclick="analyzeFloorPlan()">
           <i data-feather="play" class="w-4 h-4"></i> Generate 3D
         </button>
@@ -157,11 +154,11 @@
         </div>
 
         <div class="ai-block">
-          <div class="gemini-tag">
-            <i data-feather="cpu" class="w-6 h-6"></i> AI Construction Insight
+          <div class="engineering-tag">
+            <i data-feather="file-text" class="w-6 h-6"></i> Structural Engineering Insights
           </div>
           <div class="ai-narrative" id="ai-text">
-             Configure API Key to generate AI insights for this layout.
+             Generate 3D to calculate structural specifications for this layout.
           </div>
         </div>
         
@@ -180,27 +177,11 @@
       <div class="proc-stages">
         <div class="pstage" id="ps-parse"><div class="ps-dot"></div><div class="ps-name">Parsing Design</div></div>
         <div class="pstage" id="ps-build"><div class="ps-dot"></div><div class="ps-name">Building 3D Mesh</div></div>
-        <div class="pstage" id="ps-report"><div class="ps-dot"></div><div class="ps-name">Material Intelligence</div></div>
+        <div class="pstage" id="ps-report"><div class="ps-dot"></div><div class="ps-name">Material Calculation</div></div>
       </div>
       <div class="proc-bar-wrap"><div class="proc-bar" id="proc-bar" style="width:0%"></div></div>
       <p id="proc-build-sub" class="text-xs text-center text-brown-sec font-bold uppercase tracking-wider">Please wait...</p>
       <p id="ps-report-sub" class="hidden"></p>
-    </div>
-  </div>
-
-  <!-- API KEY MODAL -->
-  <div id="api-modal" class="modal-bg hidden">
-    <div class="modal-box">
-      <div class="modal-hdr">
-        <span class="modal-ttl">Gemini AI Configuration</span>
-        <button onclick="closeApiModal()" style="background:none; border:none; cursor:pointer;"><i data-feather="x"></i></button>
-      </div>
-      <p class="text-sm text-brown-sec mb-6">Enter your Gemini API Key to enable automated material quality reports and structural insights.</p>
-      <input type="password" id="api-inp" class="modal-inp" placeholder="Enter API Key..."/>
-      <div class="flex justify-end gap-4 mt-8">
-        <button class="btn-ghost-nav" onclick="closeApiModal()">Cancel</button>
-        <button class="btn-analyze" onclick="saveKey()">Save Key</button>
-      </div>
     </div>
   </div>
 

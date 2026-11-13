@@ -15,7 +15,6 @@ const state = {
   walls: [],              // [{x1,y1,x2,y2,type:'wall'|'window'|'door'}]
   drawStart: null,
   snapGrid: 20,
-  apiKey: '',
   analysisData: null,     // {walls, windows, doors, totalArea, totalWallLen}
   threeScene: null,
 };
@@ -25,7 +24,6 @@ const state = {
 ═══════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', () => {
   initCanvas();
-  loadKey();
   checkBackendHealth();
   
   // Icon replacement
@@ -40,9 +38,9 @@ const BACKEND = 'http://localhost:5000';
 async function checkBackendHealth() {
   try {
     const r = await fetch(`${BACKEND}/health`, { signal: AbortSignal.timeout(2000) });
-    if (r.ok) showToast('✅ AI Backend connected', 2500);
+    if (r.ok) showToast('✅ Structural Engine connected', 2500);
   } catch {
-    showToast('⚠️ AI Backend offline — using core engine', 4000);
+    showToast('⚠️ Structural Engine offline — using core drafting', 4000);
   }
 }
 
@@ -318,7 +316,7 @@ async function analyzeFloorPlan() {
       scale_px_per_m: state.snapGrid / scale
     };
 
-    setStage('ps-parse', 'ps-parse-sub', 'Sending sketch to AI Engine...', 30);
+    setStage('ps-parse', 'proc-build-sub', 'Processing structural geometry...', 30);
     
     const response = await fetch(`${BACKEND}/pipeline-draw`, {
       method: 'POST',
@@ -335,15 +333,21 @@ async function analyzeFloorPlan() {
       explanations: result.explanations
     };
     
-    setStage('ps-detect', 'ps-detect-sub', 'Analyzing structural integrity...', 70);
+    setStage('ps-build', 'proc-build-sub', 'Building 3D model...', 70);
     
     enableTabs();
     switchMode('3d');
     
     setTimeout(() => {
-      buildThreeSceneWithModel(result.model);
-      hideProcessing();
-      showToast('3D Model Generated! 🏗️', 2000);
+      try {
+        buildThreeSceneWithModel(result.model, (result.geom && result.geom.openings) ? result.geom.openings : []);
+        showToast('3D Model Generated!', 2000);
+      } catch(e) {
+        console.error('3D build error:', e);
+        showToast('3D render error: ' + e.message, 5000);
+      } finally {
+        hideProcessing();
+      }
     }, 500);
     
     generateMaterialReportSync(result);
@@ -377,11 +381,18 @@ let threeRenderer, threeScene, threeCamera;
 let autoRotate = true, wireframe = false;
 const meshes = [];
 let threeControls;
+let threeAnimFrameId = null;
 
-function buildThreeSceneWithModel(modelData) {
+function buildThreeSceneWithModel(modelData, openings) {
+  openings = openings || [];
   const container = document.getElementById('three-canvas');
-  const W = container.parentElement.clientWidth;
-  const H = container.parentElement.clientHeight;
+  const W = container.parentElement.clientWidth || 800;
+  const H = container.parentElement.clientHeight || 500;
+
+  if (threeAnimFrameId) {
+    cancelAnimationFrame(threeAnimFrameId);
+    threeAnimFrameId = null;
+  }
 
   if (threeRenderer) {
     threeScene.traverse(obj => { 
@@ -473,16 +484,74 @@ function buildThreeSceneWithModel(modelData) {
     threeScene.add(mesh);
   }
 
+  // Doors — amber panels placed at door openings
+  const modelDoors = modelData.doors || [];
+  if (modelDoors.length > 0) {
+    const doorMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.5, metalness: 0.2 });
+    const edgeMat = new THREE.LineBasicMaterial({ color: 0xfbbf24 });
+    modelDoors.forEach(function(door) {
+      var nearestWall = (modelData.walls && modelData.walls.length > 0) ? modelData.walls[0] : null;
+      var bestDist = Infinity;
+      modelData.walls.forEach(function(w) {
+        var mx = (w.x1 + w.x2) / 2;
+        var mz = (w.z1 + w.z2) / 2;
+        var d = Math.hypot(door.x - mx, door.z - mz);
+        if (d < bestDist) { bestDist = d; nearestWall = w; }
+      });
+      var angle = nearestWall
+        ? Math.atan2(nearestWall.z2 - nearestWall.z1, nearestWall.x2 - nearestWall.x1)
+        : 0;
+      var wallHeight = (nearestWall && nearestWall.height) ? nearestWall.height : 3.0;
+      var wallThickness = (nearestWall && nearestWall.thickness) ? nearestWall.thickness : 0.23;
+      var wallColor = nearestWall ? (nearestWall.type === 'LOAD_BEARING' ? 0xef4444 : 0x9ca3af) : 0x9ca3af;
+
+      // Door panel
+      var panelGeo = new THREE.BoxGeometry(door.width, door.height, 0.05);
+      var panel = new THREE.Mesh(panelGeo, doorMat);
+      panel.position.set(door.x, door.height / 2, door.z);
+      panel.rotation.y = -angle;
+      panel.castShadow = true;
+      panel.userData = { type: 'door' };
+      var edges = new THREE.EdgesGeometry(panelGeo);
+      panel.add(new THREE.LineSegments(edges, edgeMat));
+      var frameGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(door.width + 0.1, door.height + 0.1, 0.07));
+      var frame = new THREE.LineSegments(frameGeo, new THREE.LineBasicMaterial({ color: 0x92400e }));
+      frame.position.set(door.x, door.height / 2, door.z);
+      frame.rotation.y = -angle;
+      threeScene.add(frame);
+      threeScene.add(panel);
+      meshes.push(panel);
+
+      // Transom wall above the door — fills gap to full wall height
+      var transomH = wallHeight - door.height;
+      if (transomH > 0.01) {
+        var transomGeo = new THREE.BoxGeometry(door.width, transomH, wallThickness);
+        var transomMat = new THREE.MeshStandardMaterial({ color: wallColor, roughness: 0.6 });
+        var transom = new THREE.Mesh(transomGeo, transomMat);
+        transom.position.set(door.x, door.height + transomH / 2, door.z);
+        transom.rotation.y = -angle;
+        transom.castShadow = true;
+        transom.receiveShadow = true;
+        var transomEdges = new THREE.EdgesGeometry(transomGeo);
+        transom.add(new THREE.LineSegments(transomEdges, new THREE.LineBasicMaterial({ color: 0xffffff, opacity: 0.5, transparent: true })));
+        threeScene.add(transom);
+        meshes.push(transom);
+      }
+    });
+  }
+
   animate3D();
 }
 
 function animate3D() {
-  requestAnimationFrame(animate3D);
-  if (threeControls) {
-    threeControls.autoRotate = autoRotate;
-    threeControls.update();
+  threeAnimFrameId = requestAnimationFrame(animate3D);
+  if (state.mode === '3d' && threeRenderer && threeScene && threeCamera) {
+    if (threeControls) {
+      threeControls.autoRotate = autoRotate;
+      threeControls.update();
+    }
+    threeRenderer.render(threeScene, threeCamera);
   }
-  if (threeRenderer) threeRenderer.render(threeScene, threeCamera);
 }
 
 function toggleAutoRotate() {
@@ -505,29 +574,32 @@ function generateMaterialReportSync(result) {
   
   result.materials.forEach(m => {
     const mainMat = m.materials[0];
+    const isLB = (m.type === 'LOAD_BEARING');
     grid.innerHTML += `
       <div class="mat-card">
-        <div class="mat-icon">${m.type === 'LOAD_BEARING' ? '🏗️' : '🧱'}</div>
-        <div class="mat-name">${mainMat.name}</div>
-        <div class="mat-qty">${m.element_id}</div>
-        <div class="mat-unit">Score: ${mainMat.score}</div>
+        <div class="mat-icon">${isLB ? '🏗️' : '🧱'}</div>
+        <div class="mat-name font-bold text-sm">${mainMat.name}</div>
+        <div class="mat-qty text-xs font-semibold ${isLB ? 'text-amber-700' : 'text-emerald-700'}">
+          ${m.element_id} · ${isLB ? 'Load-Bearing (Window Holder)' : 'Partition (No Window)'}
+        </div>
+        <div class="mat-unit text-xs text-brown-sec mt-1">
+          Cost: <b>${mainMat.cost}</b> | Strength: <b>${mainMat.strength}</b>
+        </div>
+        <div class="text-[11px] text-slate-500 mt-2 border-t pt-1 border-beige-light">
+          Thickness: ${m.thickness || (isLB ? '230 mm' : '100 mm')} | Lintel: ${isLB ? 'RCC Lintel Required' : 'Not Required'}
+        </div>
       </div>`;
   });
   
   document.getElementById('rc-area').textContent = `${result.geom.walls.length} Structural Elements`;
-  document.getElementById('rc-walls').textContent = `1:1 Scale Refined Model`;
+  document.getElementById('rc-walls').textContent = `1:1 Precision Scaled Model`;
   
   const explanations = result.explanations || [];
-  const explanationTexts = explanations.map(e => (e.explanation || "Calculated component.")).filter(Boolean);
-  document.getElementById('ai-text').innerText = explanationTexts.join('\n\n') || "Structural analysis complete.";
-}
-
-async function callGemini(data) {
-  const prompt = `Concisely summarize the structural requirements for a ${data.totalArea}m2 floor plan with ${data.walls} walls.`;
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${state.apiKey}`;
-  const r = await fetch(url, { method: 'POST', body: JSON.stringify({contents:[{parts:[{text:prompt}]}]}) });
-  const j = await r.json();
-  return j.candidates[0].content.parts[0].text;
+  const explanationTexts = explanations.map(e => (e.explanation || "Structural component verified.")).filter(Boolean);
+  const narrativeEl = document.getElementById('ai-text');
+  if (narrativeEl) {
+    narrativeEl.innerText = explanationTexts.join('\n\n') || "Structural material calculation complete.";
+  }
 }
 
 /* ═══════════════════════════════════════════
@@ -541,22 +613,16 @@ function showToast(m, d=3000) {
 function showProcessing() { document.getElementById('processing-overlay').classList.remove('hidden'); }
 function hideProcessing() { document.getElementById('processing-overlay').classList.add('hidden'); }
 async function setStage(st, sub, msg, pct) {
-  document.getElementById(sub).textContent = msg;
-  document.getElementById('proc-bar').style.width = pct + '%';
+  var subEl = document.getElementById(sub);
+  if (subEl) subEl.textContent = msg;
+  var barEl = document.getElementById('proc-bar');
+  if (barEl) barEl.style.width = pct + '%';
   document.querySelectorAll('.pstage').forEach(s => s.classList.remove('active'));
-  document.getElementById(st).classList.add('active');
+  var stEl = document.getElementById(st);
+  if (stEl) stEl.classList.add('active');
   await new Promise(r => setTimeout(r, 400));
 }
 function enableTabs() {
   document.getElementById('tab-3d').removeAttribute('disabled');
   document.getElementById('tab-report').removeAttribute('disabled');
 }
-function loadKey() { state.apiKey = localStorage.getItem('archai_key') || ''; }
-function saveKey() {
-  const k = document.getElementById('api-inp').value;
-  localStorage.setItem('archai_key', k);
-  state.apiKey = k;
-  closeApiModal();
-}
-function openApiModal() { document.getElementById('api-modal').classList.remove('hidden'); }
-function closeApiModal() { document.getElementById('api-modal').classList.add('hidden'); }

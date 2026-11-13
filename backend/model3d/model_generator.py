@@ -7,6 +7,7 @@ def generate_3d_model(geometry_data):
     scale = geometry_data.get('scale_px_per_m', 100.0)
     openings = geometry_data.get('openings', [])
     windows = [o for o in openings if o.get('type') == 'Window']
+    door_openings = [o for o in openings if o.get('type') == 'Door']
     
     threejs_walls = []
     
@@ -58,6 +59,9 @@ def generate_3d_model(geometry_data):
                             "elevation": 1.0 # 1 meter off floor
                         })
         
+        holds_win = len(wall_windows) > 0 or w.get('holds_window', False)
+        wall_type = 'LOAD_BEARING' if holds_win else 'PARTITION'
+        
         threejs_walls.append({
             "id": w['id'],
             "x1": round(x1_m, 3),
@@ -65,14 +69,29 @@ def generate_3d_model(geometry_data):
             "x2": round(x2_m, 3),
             "z2": round(z2_m, 3),
             "height": 3.0,
-            "thickness": 0.2 if w.get('type') == 'LOAD_BEARING' else 0.1,
-            "type": w.get('type', 'PARTITION'),
+            "thickness": 0.23 if wall_type == 'LOAD_BEARING' else 0.12,
+            "type": wall_type,
+            "holds_window": holds_win,
             "span_metres": w.get('span_metres', 0),
             "windows": wall_windows
         })
         
+    # Convert door openings to model-space coordinates
+    doors_list = []
+    for door in door_openings:
+        dx_m = (door['x'] - center_x) / scale
+        dz_m = (door['y'] - center_z) / scale
+        span_m = door.get('span_px', 40) / scale
+        doors_list.append({
+            "x": round(dx_m, 3),
+            "z": round(dz_m, 3),
+            "width": round(max(0.7, span_m), 2),
+            "height": 2.1
+        })
+
     return {
         "walls": threejs_walls,
+        "doors": doors_list,
         "slab": {
             "width": round(slab_w + 0.4, 2), 
             "depth": round(slab_d + 0.4, 2),

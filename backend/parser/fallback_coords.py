@@ -1,7 +1,7 @@
 def get_fallback_geometry():
     """
-    Returns hardcoded JSON for a simple 3-room rectangular house
-    as fallback if OpenCV parsing fails. Coordinates snapped to 10px.
+    Returns hardcoded JSON for a 3-room layout with windows on exterior walls
+    and solid interior partitions without windows.
     """
     return {
         "walls": [
@@ -17,5 +17,10 @@ def get_fallback_geometry():
             {"id": "r2", "label": "ROOM 2", "polygon_points": [[100,400], [500,400], [500,700], [100,700]], "area_px": 120000},
             {"id": "r3", "label": "ROOM 3", "polygon_points": [[500,100], [900,100], [900,700], [500,700]], "area_px": 240000}
         ],
-        "openings": []
+        "openings": [
+            {"type": "Window", "x": 300, "y": 100, "span_px": 60},
+            {"type": "Window", "x": 700, "y": 100, "span_px": 60},
+            {"type": "Window", "x": 500, "y": 700, "span_px": 60},
+            {"type": "Door", "x": 500, "y": 300, "span_px": 40}
+        ]
     }

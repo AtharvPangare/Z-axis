@@ -49,38 +49,38 @@ document.addEventListener('DOMContentLoaded', () => {
     // ── 2. Element Data ───────────────────────────────────────────────
     const elementsData = [
         {
-            id: 'load-bearing', title: 'Load Bearing Walls', desc: 'High strength structural walls', icon: 'layout',
-            recommended: 'Red Brick',
-            explanation: 'Red Brick provides high structural strength at moderate cost. Its compressive strength reliably sustains high vertical loads, making it ideal for load-bearing walls.',
+            id: 'load-bearing', title: 'Load-Bearing Walls (With Window)', desc: 'Carries gravity loads & supports window lintel beam', icon: 'layout',
+            recommended: 'Reinforced Cement Concrete (RCC M25)',
+            explanation: 'Holds window fenestrations where stress concentrations require continuous RCC lintels (IS 456). High compressive strength (25 MPa) safely transfers overhead slab loads down around window apertures to the foundation.',
             ranks: [
-                { name: 'Red Brick',    score: 0.82, percent: 82 },
-                { name: 'Fly Ash Brick', score: 0.74, percent: 74 },
-                { name: 'Precast Panel', score: 0.69, percent: 69 }
+                { name: 'RCC M25 Concrete',         score: 0.95, percent: 95 },
+                { name: 'Class 1 Red Clay Brick',   score: 0.86, percent: 86 },
+                { name: 'Solid Concrete Masonry',   score: 0.81, percent: 81 }
             ]
         },
         {
-            id: 'partition', title: 'Partition Walls', desc: 'Interior wall separation', icon: 'grid',
-            recommended: 'AAC Blocks',
-            explanation: 'AAC Blocks are lightweight and provide excellent acoustic and thermal insulation, perfect for interior partitions while reducing overall dead load.',
+            id: 'partition', title: 'Partition Walls (No Window)', desc: 'Interior solid space divider (carries self-weight only)', icon: 'grid',
+            recommended: 'AAC Lightweight Blocks',
+            explanation: 'Interior room partition with zero window openings. Autoclaved Aerated Concrete (AAC) reduces dead load on floor slabs by over 50%, providing 42 dB sound isolation and 0.16 W/m·K thermal insulation at lower installation cost.',
             ranks: [
-                { name: 'AAC Blocks',   score: 0.91, percent: 91 },
-                { name: 'Hollow Block', score: 0.85, percent: 85 },
-                { name: 'Gypsum Board', score: 0.72, percent: 72 }
+                { name: 'AAC Blocks (Lightweight)', score: 0.92, percent: 92 },
+                { name: 'Hollow Concrete Blocks',   score: 0.80, percent: 80 },
+                { name: 'Gypsum Steel Stud Wall',   score: 0.73, percent: 73 }
             ]
         },
         {
             id: 'columns', title: 'Columns', desc: 'Vertical structural support', icon: 'box',
-            recommended: 'RCC (Reinforced)',
-            explanation: 'Reinforced Cement Concrete provides the compressive and tensile strength to support heavy vertical point loads efficiently and safely.',
+            recommended: 'RCC (M30 Structural)',
+            explanation: 'Reinforced cement concrete with high-yield Fe500 TMT steel rebar cages provides high compressive resistance for primary building frames.',
             ranks: [
-                { name: 'RCC',        score: 0.95, percent: 95 },
-                { name: 'Steel Frame', score: 0.88, percent: 88 },
-                { name: 'Composite',  score: 0.82, percent: 82 }
+                { name: 'RCC M30 Mix',        score: 0.95, percent: 95 },
+                { name: 'Structural Steel',   score: 0.88, percent: 88 },
+                { name: 'Composite Column',   score: 0.82, percent: 82 }
             ]
         },
         {
             id: 'slabs', title: 'Slabs', desc: 'Floor and roof structure', icon: 'layers',
-            recommended: 'RCC Slab',
+            recommended: 'Two-Way RCC Slab',
             explanation: 'Continuous solid RCC slabs are the standard for durable floor plates that distribute loads uniformly without undesirable deflections.',
             ranks: [
                 { name: 'RCC Slab',      score: 0.93, percent: 93 },

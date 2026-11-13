@@ -133,10 +133,33 @@ if (toggleViewBtn) {
             const pBtn = document.getElementById('print-model');
             if(pBtn) pBtn.classList.remove('hidden');
             toggleViewBtn.textContent = 'Switch to 2D';
-            // Force WebGL to grab new dynamic dimensions now that it's unhidden
+
+            // Immediately update 3D viewport dimensions to active container
+            if (renderer && camera && container3D.clientWidth > 0 && container3D.clientHeight > 0) {
+                camera.aspect = container3D.clientWidth / container3D.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container3D.clientWidth, container3D.clientHeight);
+                if (controls) controls.update();
+                if (scene) renderer.render(scene, camera);
+            }
+            // Trigger layout resize event for dat.GUI and additional layout responsiveness
             setTimeout(() => {
+                if (renderer && camera && container3D.clientWidth > 0 && container3D.clientHeight > 0) {
+                    camera.aspect = container3D.clientWidth / container3D.clientHeight;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(container3D.clientWidth, container3D.clientHeight);
+                }
                 window.dispatchEvent(new Event('resize'));
             }, 50);
+        }
+    });
+}
+
+if (resetCamBtn) {
+    resetCamBtn.addEventListener('click', () => {
+        if (camera && controls) {
+            gsap.to(camera.position, { x: 10, y: 15, z: 15, duration: 1, ease: "power2.inOut" });
+            gsap.to(controls.target, { x: 0, y: 0, z: 0, duration: 1, ease: "power2.inOut" });
         }
     });
 }
@@ -144,6 +167,7 @@ if (toggleViewBtn) {
 let globalImg2D = null;
 let globalParsedGeom2D = null;
 let lastModelData = null; // Store for JSON export
+let lastOpeningsPayload = null;
 
 function draw2DView() {
     if (!globalImg2D || !ctx2d) return;
@@ -423,7 +447,7 @@ async function startPipeline(file) {
         const geom = pipelineRes.geom || {};
         const imgSize = geom.image_size_px || { width: 600, height: 400 };
         const pxPerM  = (pipelineRes.model.scale || 100);
-        const openingsPayload = {
+        lastOpeningsPayload = {
             list:  (geom.openings || []),
             imgW:  imgSize.width,
             imgH:  imgSize.height,
@@ -431,7 +455,7 @@ async function startPipeline(file) {
         };
 
         // Initialize Three.js View with the REAL architectural model
-        initThreeJS(pipelineRes.model.walls, openingsPayload);
+        initThreeJS(pipelineRes.model.walls, lastOpeningsPayload);
         
         // Populate Table and Cards dynamically from the tradeoff_engine outputs
         const wallsWithExplanations = pipelineRes.materials.map((m, idx) => ({
@@ -440,7 +464,7 @@ async function startPipeline(file) {
             material: m.materials[0].name,
             cost: m.materials[0].cost,
             strength: m.materials[0].strength,
-            explanation: (pipelineRes.explanations[idx] && pipelineRes.explanations[idx].explanation) ? pipelineRes.explanations[idx].explanation : "Calculated primary internal structural component."
+            explanation: (pipelineRes.explanations && pipelineRes.explanations[idx] && pipelineRes.explanations[idx].explanation) ? pipelineRes.explanations[idx].explanation : (m.explanation || "Calculated primary structural component.")
         }));
         populateResults(wallsWithExplanations);
     }
@@ -457,315 +481,378 @@ let currentResizeHandler = null;
 
 function initThreeJS(walls, pipelineOpenings = null) {
     const container = document.getElementById('canvas-container');
-    
-    // Cleanup previous WebGL Context
+    if (!container) return;
+
+    // 1. Cleanup previous WebGL Context & Animation Loop
     if (animationFrameId !== null) {
         cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
     }
     if (currentResizeHandler) {
         window.removeEventListener('resize', currentResizeHandler);
+        currentResizeHandler = null;
     }
     if (renderer) {
-        renderer.dispose();
-        renderer.forceContextLoss();
-        renderer.domElement = null;
+        try {
+            if (renderer.domElement && renderer.domElement.parentNode) {
+                renderer.domElement.parentNode.removeChild(renderer.domElement);
+            }
+            renderer.dispose();
+        } catch (e) {
+            console.warn("Renderer cleanup warning:", e);
+        }
+        renderer = null;
     }
     if (scene) {
-        scene.traverse((child) => {
-            if (child.geometry) child.geometry.dispose();
-            if (child.material) {
-                if (Array.isArray(child.material)) {
-                    child.material.forEach(m => m.dispose());
-                } else {
-                    child.material.dispose();
+        try {
+            scene.traverse((child) => {
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) {
+                    if (Array.isArray(child.material)) {
+                        child.material.forEach(m => m.dispose());
+                    } else {
+                        child.material.dispose();
+                    }
                 }
-            }
-        });
+            });
+        } catch (e) {
+            console.warn("Scene cleanup warning:", e);
+        }
     }
 
-    // Clear old canvases if any
+    // Clear container children (old GUI, canvases, etc.)
     container.innerHTML = '';
-    
-    if (gui) { gui.destroy(); }
-    gui = new dat.GUI({ autoPlace: false });
-    gui.domElement.style.position = 'absolute';
-    gui.domElement.style.top = '10px';
-    gui.domElement.style.left = '10px';
-    container.appendChild(gui.domElement);
 
-    const guiParams = { showLoadBearing: true, showPartitions: true, showDoors3D: true, showWindows3D: true };
-    const wallsFolder = gui.addFolder('Wall Visibility');
-    wallsFolder.add(guiParams, 'showLoadBearing').name('Load Bearing').onChange(v => {
-        scene.traverse((child) => {
-            if (child.isMesh && child.userData.type === 'load-bearing') child.visible = v;
-        });
-    });
-    wallsFolder.add(guiParams, 'showPartitions').name('Partitions').onChange(v => {
-        scene.traverse((child) => {
-            if (child.isMesh && child.userData.type === 'partition') child.visible = v;
-        });
-    });
-    wallsFolder.open();
+    // 2. Setup GUI Controls
+    if (gui) { 
+        try { gui.destroy(); } catch (e) {} 
+        gui = null;
+    }
+    if (typeof dat !== 'undefined' && dat.GUI) {
+        gui = new dat.GUI({ autoPlace: false });
+        gui.domElement.style.position = 'absolute';
+        gui.domElement.style.top = '10px';
+        gui.domElement.style.left = '10px';
+        gui.domElement.style.zIndex = '20';
+        container.appendChild(gui.domElement);
 
-    const openingsFolder = gui.addFolder('Openings');
-    openingsFolder.add(guiParams, 'showDoors3D').name('Doors').onChange(v => {
-        scene.traverse((child) => {
-            if (child.isMesh && child.userData.type === 'door') child.visible = v;
+        const guiParams = { showLoadBearing: true, showPartitions: true, showDoors3D: true, showWindows3D: true };
+        const wallsFolder = gui.addFolder('Wall Visibility');
+        wallsFolder.add(guiParams, 'showLoadBearing').name('Load Bearing').onChange(v => {
+            if (scene) {
+                scene.traverse((child) => {
+                    if (child.isMesh && child.userData.type === 'load-bearing') child.visible = v;
+                });
+            }
         });
-    });
-    openingsFolder.add(guiParams, 'showWindows3D').name('Windows').onChange(v => {
-        scene.traverse((child) => {
-            if (child.isMesh && child.userData.type === 'window') child.visible = v;
+        wallsFolder.add(guiParams, 'showPartitions').name('Partitions').onChange(v => {
+            if (scene) {
+                scene.traverse((child) => {
+                    if (child.isMesh && child.userData.type === 'partition') child.visible = v;
+                });
+            }
         });
-    });
-    openingsFolder.open();
+        wallsFolder.open();
 
-    // Scene
+        const openingsFolder = gui.addFolder('Openings');
+        openingsFolder.add(guiParams, 'showDoors3D').name('Doors').onChange(v => {
+            if (scene) {
+                scene.traverse((child) => {
+                    if (child.isMesh && child.userData.type === 'door') child.visible = v;
+                });
+            }
+        });
+        openingsFolder.add(guiParams, 'showWindows3D').name('Windows').onChange(v => {
+            if (scene) {
+                scene.traverse((child) => {
+                    if (child.isMesh && child.userData.type === 'window') child.visible = v;
+                });
+            }
+        });
+        openingsFolder.open();
+    }
+
+    // 3. Robust Dimension Calculation (never 0x0 or NaN)
+    let width = container.clientWidth;
+    let height = container.clientHeight;
+    if (!width || !height || width <= 0 || height <= 0) {
+        const c2d = document.getElementById('canvas-container-2d');
+        width = (c2d && c2d.clientWidth > 0) ? c2d.clientWidth : (container.parentElement ? container.parentElement.clientWidth : 800);
+        height = (c2d && c2d.clientHeight > 0) ? c2d.clientHeight : (container.parentElement ? container.parentElement.clientHeight : 520);
+    }
+    if (!width || width <= 0) width = 800;
+    if (!height || height <= 0) height = 520;
+
+    // 4. Scene & Camera Setup
     scene = new THREE.Scene();
-    scene.background = new THREE.Color('#f1f5f9'); // slate-100
+    scene.background = new THREE.Color('#FAF7F2');
 
-    // Camera
-    camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+    const aspect = width / height;
+    camera = new THREE.PerspectiveCamera(45, (isFinite(aspect) && aspect > 0) ? aspect : 1.6, 0.1, 1000);
     camera.position.set(10, 15, 15);
 
-    // Renderer
+    // 5. Safe WebGLRenderer Setup with Context-Loss Recovery
     try {
-        renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+        renderer = new THREE.WebGLRenderer({
+            antialias: true,
+            preserveDrawingBuffer: true,
+            powerPreference: "high-performance"
+        });
     } catch (e) {
-        console.warn("Failed with antialias, trying without...", e);
+        console.warn("Failed WebGL with antialias, trying without...", e);
         try {
             renderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
         } catch (e2) {
-            console.error("WebGL completely unsupported", e2);
-            alert("Could not initialize 3D view. WebGL context failed. Please enable 'Hardware Acceleration' in your browser settings or restart your browser.");
+            console.error("WebGL completely unsupported or blocked:", e2);
+            alert("Could not initialize 3D view. WebGL context failed. Please enable 'Hardware Acceleration' in browser settings or restart your browser.");
             return;
         }
     }
-    
-    renderer.setSize(container.clientWidth, container.clientHeight);
-    renderer.shadowMap.enabled = true;
-    container.appendChild(renderer.domElement);
 
-    // Controls
-    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    const canvas = renderer.domElement;
+    canvas.addEventListener('webglcontextlost', (e) => {
+        e.preventDefault();
+        console.warn('WebGL context lost. Halting render loop and awaiting restoration...');
+        if (animationFrameId !== null) {
+            cancelAnimationFrame(animationFrameId);
+            animationFrameId = null;
+        }
+    }, false);
+
+    canvas.addEventListener('webglcontextrestored', () => {
+        console.log('WebGL context restored! Re-initializing 3D scene...');
+        if (lastModelData && lastModelData.walls) {
+            initThreeJS(lastModelData.walls, lastOpeningsPayload);
+        }
+    }, false);
+
+    container.appendChild(canvas);
+
+    // 6. Controls
+    controls = new THREE.OrbitControls(camera, canvas);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
     controls.maxPolarAngle = Math.PI / 2 - 0.05; // Lock below ground
 
-    // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    // 7. Lighting
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
     scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.85);
     dirLight.position.set(10, 20, 10);
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.width = 1024;
     dirLight.shadow.mapSize.height = 1024;
+    dirLight.shadow.bias = -0.0005;
     scene.add(dirLight);
 
-    // Floor Grid & Plane
-    const gridHelper = new THREE.GridHelper(20, 20, 0x06B6D4, 0xCBD5E1);
+    // 8. Floor Grid & Plane
+    const gridHelper = new THREE.GridHelper(24, 24, 0x8B6F47, 0xCBD5E1);
+    gridHelper.material.opacity = 0.25;
+    gridHelper.material.transparent = true;
     scene.add(gridHelper);
 
-    const planeGeometry = new THREE.PlaneGeometry(20, 20);
-    const planeMaterial = new THREE.ShadowMaterial({ opacity: 0.2 });
+    const planeGeometry = new THREE.PlaneGeometry(30, 30);
+    const planeMaterial = new THREE.ShadowMaterial({ opacity: 0.15 });
     const plane = new THREE.Mesh(planeGeometry, planeMaterial);
     plane.rotation.x = -Math.PI / 2;
     plane.receiveShadow = true;
     scene.add(plane);
 
-    // Build Extruded CSG Walls
-    walls.forEach(w => {
-        const color = (w.type === 'LOAD_BEARING') ? 0xef4444 : 0x9ca3af;
-        const dx = w.x2 - w.x1;
-        const dz = w.z2 - w.z1;
-        const length = Math.hypot(dx, dz);
-        
-        const shape = new THREE.Shape();
-        shape.moveTo(0, 0);
-        shape.lineTo(length, 0);
-        shape.lineTo(length, w.height);
-        shape.lineTo(0, w.height);
-        shape.lineTo(0, 0);
-        
-        // Punch out Windows!
-        if (w.windows && w.windows.length > 0) {
-            w.windows.forEach(win => {
-                // Ensure window doesn't bleed outside the wall length parameter
-                const safeU = Math.max(win.w/2, Math.min(length - win.w/2, win.u));
-                const hole = new THREE.Path();
-                hole.moveTo(safeU - win.w/2, win.elevation);
-                hole.lineTo(safeU + win.w/2, win.elevation);
-                hole.lineTo(safeU + win.w/2, win.elevation + win.h);
-                hole.lineTo(safeU - win.w/2, win.elevation + win.h);
-                hole.moveTo(safeU - win.w/2, win.elevation);
-                shape.holes.push(hole);
-            });
-        }
-        
-        const extrudeSettings = { depth: w.thickness, bevelEnabled: false };
-        const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-        
-        // Center for origin rotation mapping
-        geometry.translate(-length / 2, 0, -w.thickness / 2);
-        
-        const material = new THREE.MeshStandardMaterial({ 
-            color: color,
-            roughness: 0.7,
-            metalness: 0.1
-        });
-        
-        const mesh = new THREE.Mesh(geometry, material);
-        mesh.position.set((w.x1 + w.x2) / 2, 0, (w.z1 + w.z2) / 2);
-        
-        // Face the extrusion along the wall vector
-        mesh.rotation.y = -Math.atan2(dz, dx);
-        
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
-        mesh.userData = { type: w.type === 'LOAD_BEARING' ? 'load-bearing' : 'partition' };
-        
-        const edges = new THREE.EdgesGeometry(geometry);
-        const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 }));
-        mesh.add(line);
-        
-        scene.add(mesh);
-    });
+    // 9. Build Extruded CSG Walls with Validation & Geometry Fallbacks
+    if (Array.isArray(walls)) {
+        walls.forEach(w => {
+            try {
+                const color = (w.type === 'LOAD_BEARING') ? 0xef4444 : 0x9ca3af;
+                const dx = (w.x2 || 0) - (w.x1 || 0);
+                const dz = (w.z2 || 0) - (w.z1 || 0);
+                const length = Math.hypot(dx, dz);
+                if (!length || length < 0.05 || isNaN(length)) return;
 
-    // ── 3D Doors ───────────────────────────────────────────────────
-    // Tall amber slab standing at floor with an arch-top shape
-    if (walls.length > 0 && walls[0].windows !== undefined) {
-        // Only render if real pipeline data is available
-        const scaleM = walls[0].span_metres > 0
-            ? (walls[0].length_px || 100) / (walls[0].span_metres || 1) / 100
-            : 1;
-    }
+                const wallHeight = w.height || 3.0;
+                const wallThk = w.thickness || 0.2;
 
-    // Freestanding door markers placed at opening centroids
-    const doorMat = new THREE.MeshStandardMaterial({
-        color: 0xf59e0b, roughness: 0.6, metalness: 0.2
-    });
-    const windowMat = new THREE.MeshStandardMaterial({
-        color: 0x60a5fa, roughness: 0.1, metalness: 0.1,
-        transparent: true, opacity: 0.45
-    });
+                const shape = new THREE.Shape();
+                shape.moveTo(0, 0);
+                shape.lineTo(length, 0);
+                shape.lineTo(length, wallHeight);
+                shape.lineTo(0, wallHeight);
+                shape.closePath();
 
-    // Helper: arch shape for a door
-    function _doorShape(w, h) {
-        const s = new THREE.Shape();
-        s.moveTo(-w/2, 0);
-        s.lineTo(-w/2, h * 0.7);
-        s.quadraticCurveTo(-w/2, h, 0, h);
-        s.quadraticCurveTo( w/2, h, w/2, h * 0.7);
-        s.lineTo(w/2, 0);
-        s.closePath();
-        return s;
-    }
+                // Punch out Windows safely with boundary validation
+                if (w.windows && Array.isArray(w.windows) && w.windows.length > 0) {
+                    w.windows.forEach(win => {
+                        const winW = win.w || 0.8;
+                        const winH = win.h || 1.2;
+                        const winElev = win.elevation || 1.0;
+                        const margin = 0.05;
 
-    // Derive openings from the scale → only run when real model data present
-    if (typeof pipelineOpenings !== 'undefined' && pipelineOpenings) {
-        const imgW = pipelineOpenings.imgW || 600;
-        const imgH = pipelineOpenings.imgH || 400;
-        const sM   = pipelineOpenings.scale || 100;
+                        // Only carve hole if wall is large enough to contain window with positive margins
+                        if (length > winW + margin * 2 && wallHeight > winH + margin * 2) {
+                            const halfW = winW / 2;
+                            const safeU = Math.max(halfW + margin, Math.min(length - halfW - margin, win.u || (length / 2)));
+                            const safeElev = Math.max(margin, Math.min(wallHeight - winH - margin, winElev));
+                            const safeH = Math.min(winH, wallHeight - safeElev - margin);
 
-        // Helper: find closest wall to a 2D point and return its angle (radians)
-        function _nearestWallAngle(xM, zM) {
-            let best = null;
-            let bestDist = Infinity;
-            walls.forEach(w => {
-                // Mid-point of wall
-                const mx = (w.x1 + w.x2) / 2;
-                const mz = (w.z1 + w.z2) / 2;
-                const d = Math.hypot(xM - mx, zM - mz);
-                if (d < bestDist) { bestDist = d; best = w; }
-            });
-            if (!best) return 0;
-            return Math.atan2(best.z2 - best.z1, best.x2 - best.x1);
-        }
+                            const hole = new THREE.Path();
+                            hole.moveTo(safeU - halfW, safeElev);
+                            hole.lineTo(safeU + halfW, safeElev);
+                            hole.lineTo(safeU + halfW, safeElev + safeH);
+                            hole.lineTo(safeU - halfW, safeElev + safeH);
+                            hole.closePath();
+                            shape.holes.push(hole);
+                        }
+                    });
+                }
 
-        pipelineOpenings.list.forEach(op => {
-            const xM = (op.x - imgW / 2) / sM;
-            const zM = (op.y - imgH / 2) / sM;
+                let geometry;
+                try {
+                    const extrudeSettings = { depth: wallThk, bevelEnabled: false };
+                    geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+                    geometry.translate(-length / 2, 0, -wallThk / 2);
+                } catch (extrErr) {
+                    console.warn("Extrude failed for wall, using box fallback:", extrErr);
+                    geometry = new THREE.BoxGeometry(length, wallHeight, wallThk);
+                    geometry.translate(0, wallHeight / 2, 0);
+                }
 
-            if (op.type === 'Door') {
-                const doorW = Math.max(0.7, (op.radius_px * 2 || 70) / sM);
-                const doorH = 2.1;
-                const angle = _nearestWallAngle(xM, zM);
-
-                // Solid door panel — shown at 45° open from wall
-                const panelGeo = new THREE.BoxGeometry(doorW, doorH, 0.05);
-                const panelMat = new THREE.MeshStandardMaterial({
-                    color: 0xd97706, roughness: 0.5, metalness: 0.2
-                });
-                const panel = new THREE.Mesh(panelGeo, panelMat);
-
-                const hingeOffsetX = Math.cos(angle) * doorW / 2;
-                const hingeOffsetZ = Math.sin(angle) * doorW / 2;
-                panel.position.set(
-                    xM - hingeOffsetX * 0.5,
-                    doorH / 2,
-                    zM - hingeOffsetZ * 0.5
-                );
-                panel.rotation.y = -angle + Math.PI / 4;
-                panel.userData = { type: 'door' };
-                panel.castShadow = true;
-                panel.receiveShadow = true;
-
-                // Door edge frame
-                const edgeGeo = new THREE.EdgesGeometry(panelGeo);
-                panel.add(new THREE.LineSegments(edgeGeo,
-                    new THREE.LineBasicMaterial({ color: 0xfbbf24 })));
-
-                scene.add(panel);
-
-            } else if (op.type === 'Window') {
-                const winW   = Math.max(0.3, (op.span_px || 40) / sM);
-                const sill   = 1.0;    // bottom of window in metres
-                const head   = 2.2;    // top of window in metres
-                const winH   = head - sill;
-                const angle  = _nearestWallAngle(xM, zM);
-
-                // Find the nearest wall's thickness so the panel fills it flush
-                let wallThk = 0.15;
-                walls.forEach(w => {
-                    const mx = (w.x1 + w.x2) / 2;
-                    const mz = (w.z1 + w.z2) / 2;
-                    if (Math.hypot(xM - mx, zM - mz) < 1.5) {
-                        wallThk = w.thickness || 0.15;
-                    }
+                const material = new THREE.MeshStandardMaterial({ 
+                    color: color,
+                    roughness: 0.7,
+                    metalness: 0.1
                 });
 
-                const winGeo = new THREE.BoxGeometry(winW, winH, wallThk + 0.02);
-                const winMesh = new THREE.Mesh(winGeo, windowMat);
+                const mesh = new THREE.Mesh(geometry, material);
+                mesh.position.set(((w.x1 || 0) + (w.x2 || 0)) / 2, 0, ((w.z1 || 0) + (w.z2 || 0)) / 2);
+                mesh.rotation.y = -Math.atan2(dz, dx);
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+                mesh.userData = { type: w.type === 'LOAD_BEARING' ? 'load-bearing' : 'partition' };
 
-                // Place at sill centre height, aligned to wall angle
-                winMesh.position.set(xM, sill + winH / 2, zM);
-                winMesh.rotation.y = -angle;  // match wall rotation
-                winMesh.userData = { type: 'window' };
-                scene.add(winMesh);
+                try {
+                    const edges = new THREE.EdgesGeometry(geometry);
+                    const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 1.5 }));
+                    mesh.add(line);
+                } catch (e) {}
 
-                // Blue wire frame on top
-                const frameGeo = new THREE.EdgesGeometry(winGeo);
-                const frameMesh = new THREE.LineSegments(frameGeo,
-                    new THREE.LineBasicMaterial({ color: 0x3b82f6 }));
-                winMesh.add(frameMesh);
+                scene.add(mesh);
+            } catch (err) {
+                console.warn("Failed to create wall mesh:", err);
             }
         });
     }
 
-    // Reset View Button
-    document.getElementById('reset-cam').addEventListener('click', () => {
-        gsap.to(camera.position, { x: 10, y: 15, z: 15, duration: 1, ease: "power2.inOut" });
-        gsap.to(controls.target, { x: 0, y: 0, z: 0, duration: 1, ease: "power2.inOut" });
-    });
+    // 10. 3D Openings (Doors & Windows)
+    if (pipelineOpenings && Array.isArray(pipelineOpenings.list) && pipelineOpenings.list.length > 0) {
+        const imgW = pipelineOpenings.imgW || 600;
+        const imgH = pipelineOpenings.imgH || 400;
+        const sM   = (pipelineOpenings.scale && pipelineOpenings.scale > 0) ? pipelineOpenings.scale : 100;
 
-    // Print Model Button -> Now Export JSON
+        function _nearestWallAngle(xM, zM) {
+            let best = null;
+            let bestDist = Infinity;
+            if (Array.isArray(walls)) {
+                walls.forEach(w => {
+                    const mx = ((w.x1 || 0) + (w.x2 || 0)) / 2;
+                    const mz = ((w.y1 || 0) + (w.y2 || 0)) / 2;
+                    const d = Math.hypot(xM - mx, zM - mz);
+                    if (d < bestDist) { bestDist = d; best = w; }
+                });
+            }
+            if (!best) return 0;
+            return Math.atan2((best.z2 || 0) - (best.z1 || 0), (best.x2 || 0) - (best.x1 || 0));
+        }
+
+        const windowMat = new THREE.MeshStandardMaterial({
+            color: 0x60a5fa, roughness: 0.1, metalness: 0.1,
+            transparent: true, opacity: 0.45
+        });
+
+        pipelineOpenings.list.forEach(op => {
+            try {
+                const xM = (op.x - imgW / 2) / sM;
+                const zM = (op.y - imgH / 2) / sM;
+                if (!isFinite(xM) || !isFinite(zM)) return;
+
+                if (op.type === 'Door') {
+                    const doorW = Math.max(0.7, (op.radius_px * 2 || 70) / sM);
+                    const doorH = 2.1;
+                    const angle = _nearestWallAngle(xM, zM);
+
+                    const panelGeo = new THREE.BoxGeometry(doorW, doorH, 0.05);
+                    const panelMat = new THREE.MeshStandardMaterial({
+                        color: 0xd97706, roughness: 0.5, metalness: 0.2
+                    });
+                    const panel = new THREE.Mesh(panelGeo, panelMat);
+
+                    const hingeOffsetX = Math.cos(angle) * doorW / 2;
+                    const hingeOffsetZ = Math.sin(angle) * doorW / 2;
+                    panel.position.set(
+                        xM - hingeOffsetX * 0.5,
+                        doorH / 2,
+                        zM - hingeOffsetZ * 0.5
+                    );
+                    panel.rotation.y = -angle + Math.PI / 4;
+                    panel.userData = { type: 'door' };
+                    panel.castShadow = true;
+                    panel.receiveShadow = true;
+
+                    try {
+                        const edgeGeo = new THREE.EdgesGeometry(panelGeo);
+                        panel.add(new THREE.LineSegments(edgeGeo, new THREE.LineBasicMaterial({ color: 0xfbbf24 })));
+                    } catch (e) {}
+
+                    scene.add(panel);
+
+                } else if (op.type === 'Window') {
+                    const winW   = Math.max(0.3, (op.span_px || 40) / sM);
+                    const sill   = 1.0;
+                    const head   = 2.2;
+                    const winH   = head - sill;
+                    const angle  = _nearestWallAngle(xM, zM);
+
+                    let wallThk = 0.15;
+                    if (Array.isArray(walls)) {
+                        walls.forEach(w => {
+                            const mx = ((w.x1 || 0) + (w.x2 || 0)) / 2;
+                            const mz = ((w.z1 || 0) + (w.z2 || 0)) / 2;
+                            if (Math.hypot(xM - mx, zM - mz) < 1.5) {
+                                wallThk = w.thickness || 0.15;
+                            }
+                        });
+                    }
+
+                    const winGeo = new THREE.BoxGeometry(winW, winH, wallThk + 0.02);
+                    const winMesh = new THREE.Mesh(winGeo, windowMat);
+
+                    winMesh.position.set(xM, sill + winH / 2, zM);
+                    winMesh.rotation.y = -angle;
+                    winMesh.userData = { type: 'window' };
+                    scene.add(winMesh);
+
+                    try {
+                        const frameGeo = new THREE.EdgesGeometry(winGeo);
+                        const frameMesh = new THREE.LineSegments(frameGeo, new THREE.LineBasicMaterial({ color: 0x3b82f6 }));
+                        winMesh.add(frameMesh);
+                    } catch (e) {}
+                }
+            } catch (opErr) {
+                console.warn("Failed creating opening 3D mesh:", opErr);
+            }
+        });
+    }
+
+    // 11. Export JSON Button (Re-bound cleanly)
     const printBtnEl = document.getElementById('print-model');
     if (printBtnEl) {
         const newPrintBtn = printBtnEl.cloneNode(true);
         printBtnEl.parentNode.replaceChild(newPrintBtn, printBtnEl);
         
-        // Update label and icon if possible
         const btnText = newPrintBtn.querySelector('span');
         if (btnText) btnText.textContent = "Export JSON";
         
@@ -783,26 +870,33 @@ function initThreeJS(walls, pipelineOpenings = null) {
             downloadAnchorNode.click();
             downloadAnchorNode.remove();
             
-            showToast("JSON Model Exported! 📄");
+            if (typeof showToast === 'function') {
+                showToast("JSON Model Exported! 📄");
+            }
         });
         if (window.feather) feather.replace();
     }
 
-    // Resize Handler
+    // 12. Dynamic Resize Handler
     currentResizeHandler = () => {
-        if (container.clientWidth > 0) {
-            camera.aspect = container.clientWidth / container.clientHeight;
+        if (!container || !renderer || !camera) return;
+        const cw = container.clientWidth;
+        const ch = container.clientHeight;
+        if (cw > 0 && ch > 0) {
+            camera.aspect = cw / ch;
             camera.updateProjectionMatrix();
-            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setSize(cw, ch);
         }
     };
     window.addEventListener('resize', currentResizeHandler);
 
-    // Animate Loop
+    // 13. High-Efficiency Animate Loop (Only renders when 3D is active and visible)
     const animate = function () {
         animationFrameId = requestAnimationFrame(animate);
-        controls.update();
-        renderer.render(scene, camera);
+        if (!is2DView && container.clientWidth > 0 && container.clientHeight > 0 && renderer && scene && camera) {
+            if (controls) controls.update();
+            renderer.render(scene, camera);
+        }
     };
 
     animate();
@@ -815,46 +909,45 @@ function populateResults(walls) {
 
     walls.forEach(w => {
         // 1. Table Rows
-        const typeBadgeClass = w.type === 'load-bearing' 
-            ? 'bg-red-50 text-red-600 border border-red-200' 
-            : 'bg-slate-100 text-slate-600 border border-slate-200';
+        const isLoadBearing = (w.type === 'load-bearing' || w.type === 'LOAD_BEARING');
+        const typeBadgeClass = isLoadBearing 
+            ? 'bg-amber-100 text-amber-900 border border-amber-300 font-bold' 
+            : 'bg-emerald-50 text-emerald-800 border border-emerald-200 font-medium';
+        const typeLabel = isLoadBearing ? 'Load-Bearing (Window)' : 'Partition (No Window)';
             
         const row = document.createElement('tr');
         row.className = "hover:bg-slate-50 transition-colors";
         row.innerHTML = `
             <td class="p-4 border-b border-slate-100 font-semibold text-slate-800">${w.id}</td>
-            <td class="p-4 border-b border-slate-100"><span class="px-3 py-1 text-xs rounded-full font-medium ${typeBadgeClass}">${w.type}</span></td>
-            <td class="p-4 border-b border-slate-100 font-medium text-cyan-600">${w.material}</td>
+            <td class="p-4 border-b border-slate-100"><span class="px-3 py-1 text-xs rounded-full ${typeBadgeClass}">${typeLabel}</span></td>
+            <td class="p-4 border-b border-slate-100 font-medium text-brown-dark">${w.material}</td>
             <td class="p-4 border-b border-slate-100 text-slate-600">${w.cost}</td>
-            <td class="p-4 border-b border-slate-100 text-slate-600"><span class="flex items-center"><i data-feather="shield" class="w-4 h-4 mr-2 text-cyan-500"></i> ${w.strength}</span></td>
+            <td class="p-4 border-b border-slate-100 text-slate-600"><span class="flex items-center"><i data-feather="shield" class="w-4 h-4 mr-2 text-amber-600"></i> ${w.strength}</span></td>
         `;
         materialsTableBody.appendChild(row);
 
-        // 2. LLM Cards
+        // 2. Structural Specification Cards
         const card = document.createElement('div');
-        card.className = "p-6 rounded-2xl border border-slate-200 bg-white hover:border-cyan-300 transition-colors shadow-sm relative overflow-hidden group";
-        
-        // Add subtle accent glow for load-bearing
-        const glowColor = w.type === 'load-bearing' ? 'bg-red-50' : 'bg-slate-50';
+        card.className = "p-6 rounded-2xl border border-slate-200 bg-white hover:border-brown-primary transition-all shadow-sm relative overflow-hidden group";
         
         card.innerHTML = `
-            <div class="absolute top-0 left-0 w-2 h-full ${w.type === 'load-bearing' ? 'bg-red-400' : 'bg-slate-300'}"></div>
+            <div class="absolute top-0 left-0 w-2 h-full ${isLoadBearing ? 'bg-amber-600' : 'bg-emerald-500'}"></div>
             <div class="ml-4">
                 <div class="flex justify-between items-start mb-4">
                     <div>
-                        <h4 class="text-lg font-bold text-slate-900">${w.id} Analysis</h4>
-                        <p class="text-xs text-slate-500 mt-1 uppercase tracking-wider">${w.material}</p>
+                        <h4 class="text-lg font-bold text-slate-900">${w.id} — ${typeLabel}</h4>
+                        <p class="text-xs text-brown-primary mt-1 uppercase tracking-wider font-semibold">${w.material}</p>
                     </div>
-                    <div class="bg-cyan-50 p-2 rounded-lg text-cyan-600 group-hover:bg-cyan-500 group-hover:text-white transition-colors">
-                        <i data-feather="cpu" class="w-5 h-5"></i>
+                    <div class="${isLoadBearing ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'} p-2 rounded-lg">
+                        <i data-feather="${isLoadBearing ? 'layout' : 'grid'}" class="w-5 h-5"></i>
                     </div>
                 </div>
-                <p class="text-sm text-slate-600 border-l-2 border-slate-200 pl-4 py-1 italic leading-relaxed">
-                    "${w.explanation}"
+                <p class="text-sm text-slate-700 border-l-2 ${isLoadBearing ? 'border-amber-400' : 'border-emerald-300'} pl-4 py-1 leading-relaxed">
+                    ${w.explanation}
                 </p>
-                <div class="mt-4 pt-4 border-t border-slate-100 flex gap-4 text-xs font-medium text-slate-500">
-                    <span class="flex items-center"><i data-feather="loader" class="w-3 h-3 mr-1"></i> Claude 3.5 Sonnet</span>
-                    <span class="flex items-center text-cyan-600"><i data-feather="check" class="w-3 h-3 mr-1"></i> Confirmed Pipeline</span>
+                <div class="mt-4 pt-4 border-t border-slate-100 flex flex-wrap gap-4 text-xs font-medium text-slate-600">
+                    <span class="flex items-center text-brown-dark"><i data-feather="check-circle" class="w-3.5 h-3.5 mr-1 text-emerald-600"></i> ${isLoadBearing ? 'RCC Lintel Mandatory (IS 456 / Eurocode 2)' : 'Non-Structural Partition (IS 2185)'}</span>
+                    <span class="flex items-center text-slate-600"><i data-feather="shield" class="w-3.5 h-3.5 mr-1 text-amber-600"></i> Compressive Strength: ${w.strength}</span>
                 </div>
             </div>
         `;
